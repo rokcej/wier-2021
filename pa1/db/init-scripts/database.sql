@@ -13,6 +13,7 @@ CREATE TABLE crawler.page (
     site_id integer NOT NULL,
     url varchar(3000) NOT NULL,
     html_content text,
+    html_hash varchar(32),
     http_status_code integer NOT NULL,
     accessed_time timestamp NOT NULL,
     PRIMARY KEY (id),
