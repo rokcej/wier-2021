@@ -16,11 +16,17 @@ import re
 USER_AGENT = "fri-ieps-mr"
 SEED_URLS = [
     "http://gov.si",
-    "http://evem.gov.si",
-    "http://e-uprava.gov.si",
-    "http://e-prostor.gov.si",
+    # "http://evem.gov.si",
+    # "http://e-uprava.gov.si",
+    # "http://e-prostor.gov.si",
+
+    "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacije_ETRS89/Aplikacije/ETRS89-SI.zip",
+    "https://egp.gu.gov.si/egp/",
+    "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
+
 ]
-TIMEOUT = 2 # Selenium timeout
+MIN_WAIT_TIME = 2 # Selenium timeout
+MAX_LOAD_TIME = 15
 NUM_THREADS = 4
 
 
@@ -97,12 +103,13 @@ def crawl(thread_id, conn):
     profile = webdriver.FirefoxProfile()
     profile.set_preference("general.useragent.override", USER_AGENT)
     driver = webdriver.Firefox(profile)
+    driver.set_page_load_timeout(MAX_LOAD_TIME)
 
     # Create DB connection cursor
     cur = conn.cursor()
 
     # Main loop
-    max_pages = 30
+    max_pages = 10
     while max_pages > 0:
         # Get next element in frontier
         if not thread_active[thread_id]:
@@ -156,7 +163,7 @@ def crawl(thread_id, conn):
         # Get html
         try:
             driver.get(url)
-            time.sleep(TIMEOUT)
+            time.sleep(MIN_WAIT_TIME)
         except:
             print(f"[{thread_id}] Error visiting URL!")
             with frontier_lock:
@@ -174,8 +181,13 @@ def crawl(thread_id, conn):
             page_type_code = 'DUPLICATE'
 
         # Get HTTP status code
-        response = requests.head(url, allow_redirects=True, headers={"User-Agent": USER_AGENT})
-        http_status_code = response.status_code
+        try:
+            response = requests.head(url, allow_redirects=True, headers={"User-Agent": USER_AGENT})
+            http_status_code = response.status_code
+        except Exception as e:
+            print(f"[{thread_id}] Error getting URL HEAD!")
+            print(e)
+            http_status_code = None
 
         # Update page in DB
         cur.execute("UPDATE crawler.page " +
@@ -213,10 +225,12 @@ if __name__ == "__main__":
             for seed_url in SEED_URLS:
                 frontier_append(cur, seed_url, None, None)
 
-    # Start the crawler
-    with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
-        for i in range(NUM_THREADS):
-            executor.submit(crawl, i, conn)
+    # # Start the crawler
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+    #     for i in range(NUM_THREADS):
+    #         executor.submit(crawl, i, conn)
+
+    crawl(0, conn)
 
     conn.close()
 

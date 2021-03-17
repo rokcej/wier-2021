@@ -1,5 +1,16 @@
 # Programming Assignment 1
 
+## Installation
+
+* Install Python packages
+```bash
+pip install selenium
+pip install url-normalize
+pip install psycopg2
+```
+* Download geckodriver (Firefox WebDriver) and add it to `PATH`
+
+
 ## Questions
 
 * How do we find non-image data on a page?
@@ -7,17 +18,17 @@
 * If page doesn't exist, should we remove it from the DB?
 
 * If page doesn't exist, should the site be stored in the DB?
-Yes
+	* Yes
 * How to know if response is text or not? (e.g. sitemap) application/xml
-Current approach good enough
+	* Current approach good enough
 * What's a good way to view / manage the DB?
-Pgadmin
+	* Pgadmin
 * Should we store the frontier in the DB? (if we stop the crawler while the frontier isn't empty)
-Yes
+	* Yes
 * Should the 5 second limit apply to the domain or IP? (how do we get the IP?)
-Domain is good enough
+	* Domain is good enough
 * Can we remove # at the end
-Yes, unless you find an example where it wouldn't be safe
+	* Yes, unless you find an example where it wouldn't be safe
 
 ## TODO
 
@@ -31,8 +42,8 @@ Yes, unless you find an example where it wouldn't be safe
 
 ## Bugs
 
-* Thread finishing too early
-* Multithreaded DB access
+* (FIXED) Thread finishing too early
+* (FIXED) Multithreaded DB access causing duplicate keys
 ```
 2021-03-16 23:30:21.133 UTC [648] ERROR:  duplicate key value violates unique constraint "uidx_page_url"
 2021-03-16 23:30:21.133 UTC [648] DETAIL:  Key (url)=(https://www.e-prostor.gov.si/kontakt/) already exists.
