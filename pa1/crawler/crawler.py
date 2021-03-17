@@ -21,7 +21,7 @@ SEED_URLS = [
     "http://e-prostor.gov.si",
 ]
 TIMEOUT = 2 # Selenium timeout
-NUM_THREADS = 1
+NUM_THREADS = 4
 
 
 
@@ -53,16 +53,16 @@ def curl(url):
         return None
     return None
 
-def frontier_pop(cur):
+def frontier_pop_unsafe(cur):
     # Return tuple (page_id, url)
-    with frontier_lock:
-        # TODO Do both in only one SQL command if possible
-        cur.execute("SELECT id, url FROM crawler.page WHERE page_type_code = 'FRONTIER' ORDER BY id ASC")
-        res = cur.fetchone()
-        if res != None:
-            cur.execute("UPDATE crawler.page SET page_type_code = 'PROCESSING' WHERE id = %s", (res[0],))
-        #print("Frontier pop result: " + str(res))
-        return res
+    #with frontier_lock:
+    # TODO Do both in only one SQL command if possible
+    cur.execute("SELECT id, url FROM crawler.page WHERE page_type_code = 'FRONTIER' ORDER BY id ASC")
+    res = cur.fetchone()
+    if res != None:
+        cur.execute("UPDATE crawler.page SET page_type_code = 'PROCESSING' WHERE id = %s", (res[0],))
+    #print("Frontier pop result: " + str(res))
+    return res
 
 def frontier_append(cur, url, from_page_id=None, robots=None):
     # Allow only *.gov.si
@@ -91,7 +91,7 @@ def frontier_append(cur, url, from_page_id=None, robots=None):
         return page_id
 
 def crawl(thread_id, conn):
-    print("==Thread " + str(thread_id) + " started==")
+    print("===Thread " + str(thread_id) + " started===")
 
     # Create Selenium webdriver and set User-Agent
     profile = webdriver.FirefoxProfile()
@@ -102,24 +102,25 @@ def crawl(thread_id, conn):
     cur = conn.cursor()
 
     # Main loop
-    max_pages = 5
+    max_pages = 30
     while max_pages > 0:
-        max_pages -= 1
-
         # Get next element in frontier
-        # TODO Fix thread_active
-        frontier_element = frontier_pop(cur)
-        if frontier_element == None:
-            thread_active[thread_id] = False
-            if not any(thread_active):
-                break
-            time.sleep(0.1)
-            continue
-        thread_active[thread_id] = True
+        if not thread_active[thread_id]:
+            time.sleep(0.5) # Add small delay while waiting
+        with frontier_lock:
+            frontier_element = frontier_pop_unsafe(cur)
+            if frontier_element == None:
+                thread_active[thread_id] = False
+                if not any(thread_active):
+                    break
+                continue
+            thread_active[thread_id] = True
+
+        max_pages -= 1
 
         # Get URL and domain
         page_id, url = frontier_element
-        print("Processing URL: " + url)
+        print(f"[{thread_id}] Processing URL: " + url)
         domain = urllib.parse.urlparse(url).netloc
         
         # Get site data
@@ -157,8 +158,10 @@ def crawl(thread_id, conn):
             driver.get(url)
             time.sleep(TIMEOUT)
         except:
-            print("Error visiting URL!")
-            cur.execute("DELETE FROM crawler.page WHERE id = %s", (page_id,))
+            print(f"[{thread_id}] Error visiting URL!")
+            with frontier_lock:
+                cur.execute("DELETE FROM crawler.link WHERE to_page = %s", (page_id,))    
+                cur.execute("DELETE FROM crawler.page WHERE id = %s", (page_id,))
             continue
         html = driver.page_source
         page_type_code = 'HTML'
@@ -193,9 +196,10 @@ def crawl(thread_id, conn):
                 frontier_append(cur, href_norm, page_id, robots)
 
     # Cleanup
+    thread_active[thread_id] = False
     cur.close()
     driver.close()
-    print("==Thread " + str(thread_id) + " finished==")
+    print("===Thread " + str(thread_id) + " finished===")
 
 
 if __name__ == "__main__":
