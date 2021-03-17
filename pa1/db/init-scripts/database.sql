@@ -8,16 +8,24 @@ CREATE TABLE crawler.site (
     PRIMARY KEY (id)
 );
 
+
+CREATE TABLE crawler.page_type ( 
+	code varchar(20) NOT NULL,	
+	PRIMARY KEY (code)
+);
+
 CREATE TABLE crawler.page (
     id serial NOT NULL,
-    site_id integer NOT NULL,
-    url varchar(3000) NOT NULL,
+    site_id integer,
+    page_type_code varchar(20) NOT NULL,
+    "url" varchar(3000) NOT NULL,
     html_content text,
     html_hash varchar(32),
-    http_status_code integer NOT NULL,
-    accessed_time timestamp NOT NULL,
+    http_status_code integer,
+    accessed_time timestamp,
     PRIMARY KEY (id),
-    FOREIGN KEY (site_id) REFERENCES crawler.site(id)
+    FOREIGN KEY (site_id) REFERENCES crawler.site(id),
+    FOREIGN KEY (page_type_code) REFERENCES crawler.page_type(code)
 );
 
 CREATE UNIQUE INDEX uidx_page_url ON crawler.page(url);
@@ -34,12 +42,20 @@ CREATE TABLE crawler.link (
 CREATE TABLE crawler.image (
     id serial NOT NULL,
     page_id integer NOT NULL,
-    filename varchar(255),
+    "filename" varchar(255),
     content_type varchar(50),
-    data bytea,
+    "data" bytea,
     accessed_time timestamp NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (page_id) REFERENCES crawler.page(id)
 );
 
 CREATE INDEX idx_image_page_id ON crawler.image(page_id);
+
+INSERT INTO crawler.page_type VALUES 
+	('HTML'),
+	('BINARY'),
+	('DUPLICATE'),
+	('FRONTIER'),
+    ('PROCESSING');
+

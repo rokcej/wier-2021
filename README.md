@@ -3,6 +3,10 @@ Web Information Extraction and Retrieval course project
 
 ## Questions
 
+* How do we find non-image data on a page?
+* How do we get the HTTP status code?
+* If page doesn't exist, should we remove it from the DB?
+
 * If page doesn't exist, should the site be stored in the DB?
 Yes
 * How to know if response is text or not? (e.g. sitemap) application/xml
@@ -14,6 +18,7 @@ Yes
 * Should the 5 second limit apply to the domain or IP? (how do we get the IP?)
 Domain is good enough
 * Can we remove # at the end
+Yes, unless you find an example where it wouldn't be safe
 
 ## TODO
 
