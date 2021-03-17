@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from bs4 import BeautifulSoup
 import concurrent.futures
 import threading
 import url_normalize
@@ -11,6 +12,8 @@ import requests
 import hashlib
 import time
 import re
+from bs4 import BeautifulSoup as BSHTML 
+from pathlib import Path  
 
 # Parameters
 USER_AGENT = "fri-ieps-mr"
@@ -20,9 +23,9 @@ SEED_URLS = [
     # "http://e-uprava.gov.si",
     # "http://e-prostor.gov.si",
 
-    "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacije_ETRS89/Aplikacije/ETRS89-SI.zip",
-    "https://egp.gu.gov.si/egp/",
-    "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
+#    "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacije_ETRS89/Aplikacije/ETRS89-SI.zip",
+#    "https://egp.gu.gov.si/egp/",
+#    "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
 
 ]
 MIN_WAIT_TIME = 2 # Selenium timeout
@@ -144,7 +147,7 @@ def crawl(thread_id, conn):
                 robots = urllib.robotparser.RobotFileParser()
                 robots.parse(robots_content.split('\n'))
 
-                sitemaps = robots.site_maps()
+                sitemaps = None
                 if sitemaps != None and len(sitemaps) > 0:
                     sitemap_content = curl(sitemaps[0])
                 else:
@@ -207,7 +210,33 @@ def crawl(thread_id, conn):
                     continue
                 frontier_append(cur, href_norm, page_id, robots)
 
-    # Cleanup
+       
+
+        #Finding value of src
+        soup = BSHTML(html) 
+        images = soup.findAll('img')
+        image_id=None
+        try:
+            for image in images:
+                src= image['src'] 
+                iname= Path(src).name
+                if  src.endswith(".jpg") ==True:
+                    itype="image/jpg"                 
+                elif src.endswith(".png")==True:
+                    itype="png"                 
+                elif src.endswith(".svg") ==True:
+                    itype="svg"                   
+                elif src.endswith(".gif")== True:
+                    itype="gif"
+               
+                idata = requests.get(urllib.parse.urljoin(url,src))
+                
+        except:
+            print("YOY")
+#            continue
+            
+        cur.execute("INSERT INTO crawler.image(page_id, filename, content_type,data,accessed_time) VALUES (%s, %s, %s, %s,now()) ", (page_id,iname,idata.headers["Content-Type"],idata.content))
+#    # Cleanup
     thread_active[thread_id] = False
     cur.close()
     driver.close()
@@ -224,6 +253,7 @@ if __name__ == "__main__":
         with conn.cursor() as cur:
             for seed_url in SEED_URLS:
                 frontier_append(cur, seed_url, None, None)
+
 
     # # Start the crawler
     # with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
