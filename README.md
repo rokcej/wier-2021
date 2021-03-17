@@ -4,7 +4,16 @@ Web Information Extraction and Retrieval course project
 ## Questions
 
 * If page doesn't exist, should the site be stored in the DB?
-* How to know if response is text or not? (e.g. sitemap)
+Yes
+* How to know if response is text or not? (e.g. sitemap) application/xml
+Current approach good enough
+* What's a good way to view / manage the DB?
+Pgadmin
+* Should we store the frontier in the DB? (if we stop the crawler while the frontier isn't empty)
+Yes
+* Should the 5 second limit apply to the domain or IP? (how do we get the IP?)
+Domain is good enough
+* Can we remove # at the end
 
 ## TODO
 
@@ -22,3 +31,8 @@ Web Information Extraction and Retrieval course project
 2021-03-16 23:30:21.133 UTC [648] ERROR:  duplicate key value violates unique constraint "uidx_page_url"
 2021-03-16 23:30:21.133 UTC [648] DETAIL:  Key (url)=(https://www.e-prostor.gov.si/kontakt/) already exists.
 ```
+
+## Notes
+
+* Odstranimo # razen ce najdemo protiprimer
+

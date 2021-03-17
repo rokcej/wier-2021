@@ -20,7 +20,7 @@ SEED_URLS = [
     "http://e-prostor.gov.si",
 ]
 TIMEOUT = 2 # Selenium timeout
-NUM_THREADS = 4
+NUM_THREADS = 1
 
 
 def normalize_url(url):
@@ -68,9 +68,12 @@ def safe_append(el):
         frontier.append(el)
 
 def crawl(thread_id):
-    print("==Thread " + str(threading.get_ident()) + " started==")
+    print("==Thread " + str(thread_id) + " started==")
 
-    driver = webdriver.Firefox()
+    # Create Selenium webdriver and set User-Agent
+    profile = webdriver.FirefoxProfile()
+    profile.set_preference("general.useragent.override", USER_AGENT)
+    driver = webdriver.Firefox(profile)
 
     # Connect to DB
     conn = psycopg2.connect(host="localhost", user="user", password="SecretPassword")
