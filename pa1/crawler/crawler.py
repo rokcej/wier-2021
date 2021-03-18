@@ -16,13 +16,13 @@ import re
 USER_AGENT = "fri-ieps-mr"
 SEED_URLS = [
     "http://gov.si",
-    # "http://evem.gov.si",
-    # "http://e-uprava.gov.si",
-    # "http://e-prostor.gov.si",
+    "http://evem.gov.si",
+    "http://e-uprava.gov.si",
+    "http://e-prostor.gov.si",
 
-    "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacije_ETRS89/Aplikacije/ETRS89-SI.zip",
-    "https://egp.gu.gov.si/egp/",
-    "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
+    # "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacije_ETRS89/Aplikacije/ETRS89-SI.zip",
+    # "https://egp.gu.gov.si/egp/",
+    # "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
 
 ]
 MIN_WAIT_TIME = 2 # Selenium timeout
@@ -38,10 +38,10 @@ thread_active = [True for _ in range(NUM_THREADS)]
 
 
 def normalize_url(url):
-    url_normal = url_normalize.url_normalize(url)
-    # TODO Remove #
-    # r"#[\w\d]*$"
-    return url_normal
+    url_norm = url_normalize.url_normalize(url)
+    # Remove "#"
+    url_norm, url_frag = urllib.parse.urldefrag(url_normal)
+    return url_norm
 
 def curl(url):
     try:

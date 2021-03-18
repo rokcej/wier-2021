@@ -1,14 +1,27 @@
 # Programming Assignment 1
 
-## Installation
+## Setup
 
-* Install Python packages
+* Install Python >= 3.8 and the following packages:
 ```bash
 pip install selenium
 pip install url-normalize
 pip install psycopg2
 ```
 * Download geckodriver (Firefox WebDriver) and add it to `PATH`
+```bash
+sudo apt-get install firefox-geckodriver
+```
+* Install docker and create a PostgreSQL container:
+```bash
+docker run --name postgresql-wier -e POSTGRES_PASSWORD=SecretPassword \
+-e POSTGRES_USER=user -v $PWD/db/pgdata:/var/lib/postgresql/data \
+-v $PWD/db/init-scripts:/docker-entrypoint-initdb.d -p 5432:5432 -d postgres:12.2
+```
+* Run the crawler:
+```bash
+python crawler/crawler.py
+```
 
 
 ## Questions
@@ -34,11 +47,15 @@ pip install psycopg2
 
 * Get images
 * Remove # from URLs?
-* Don't send too many requests to the same server too quickly (maybe add a minimum delay)
+* Don't send too many requests to the same server too quickly (maybe add a minimum delay) (5 seconds)
 * Multiple threads
 * Collect emails and telephone numbers (for educational purposes only!)
 * Add link even if site is already in the DB
 * Selenium timeout when site doesn't load???
+* Crawl-delay
+* Add link to existing URLs
+* Get links from onclick events
+* Add DB to repository
 
 ## Bugs
 
