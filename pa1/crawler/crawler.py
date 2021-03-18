@@ -212,7 +212,7 @@ def crawl(thread_id, conn):
 
        
 
-        #Finding value of src
+        # Finding value of src
         soup = BSHTML(html) 
         images = soup.findAll('img')
         image_id=None
@@ -230,13 +230,9 @@ def crawl(thread_id, conn):
                     itype="gif"
                
                 idata = requests.get(urllib.parse.urljoin(url,src))
-                
-        except:
-            print("YOY")
-#            continue
-            
-        cur.execute("INSERT INTO crawler.image(page_id, filename, content_type,data,accessed_time) VALUES (%s, %s, %s, %s,now()) ", (page_id,iname,idata.headers["Content-Type"],idata.content))
-#    # Cleanup
+                cur.execute("INSERT INTO crawler.image(page_id, filename, content_type,data,accessed_time) VALUES (%s, %s, %s, %s,now()) ", (page_id,iname,idata.headers["Content-Type"],idata.content))
+
+    # Cleanup
     thread_active[thread_id] = False
     cur.close()
     driver.close()
