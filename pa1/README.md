@@ -27,9 +27,15 @@ python crawler/crawler.py
 ## Questions
 
 * How do we find non-image data on a page?
-* How do we get the HTTP status code?
+	* Just check if the site is html or not
+* How do we get the HTTP status code? Should we send a HEAD request first? What about redirects?
+	* Send HEAD first
 * If page doesn't exist, should we remove it from the DB?
-
+	* Mark it as not accessible
+* For pages, is checking Content-Type header good enough?
+	* Yes
+* What's a good way to implement crawl delay? Can robots.txt override the 5s rule?
+	* Locally, not in DB
 * If page doesn't exist, should the site be stored in the DB?
 	* Yes
 * How to know if response is text or not? (e.g. sitemap) application/xml
@@ -46,16 +52,17 @@ python crawler/crawler.py
 ## TODO
 
 * Get images
-* Remove # from URLs?
+* (DONE) Remove # from URLs?
 * Don't send too many requests to the same server too quickly (maybe add a minimum delay) (5 seconds)
-* Multiple threads
+* (DONE) Multiple threads
 * Collect emails and telephone numbers (for educational purposes only!)
-* Add link even if site is already in the DB
-* Selenium timeout when site doesn't load???
+* (DONE) Add link even if site is already in the DB
+* (DONE) Selenium timeout when site doesn't load???
 * Crawl-delay
-* Add link to existing URLs
+* (DONE) Add link to existing URLs
 * Get links from onclick events
 * Add DB to repository
+* Interrupt handler
 
 ## Bugs
 
@@ -69,4 +76,6 @@ python crawler/crawler.py
 ## Notes
 
 * Odstranimo # razen ce najdemo protiprimer
-
+* Pri slikah je dovolj da upostevamo ime ali pa content-type header
+* Pri onclick preveri VSAJ location.href in document.location
+* Filename atribut v headerju za linke ki npr. nimajo koncnice .pdf, ampak je content-type pdf

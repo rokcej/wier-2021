@@ -31,11 +31,13 @@ SEED_URLS = [
 MIN_WAIT_TIME = 2 # Selenium timeout
 MAX_LOAD_TIME = 15
 NUM_THREADS = 4
-
+CRAWL_DELAY = 5
 
 
 # Multi-threading
 frontier_lock = threading.Lock()
+history_lock = threading.Lock()
+history = {}
 thread_active = [True for _ in range(NUM_THREADS)]
 
 
@@ -43,7 +45,7 @@ thread_active = [True for _ in range(NUM_THREADS)]
 def normalize_url(url):
     url_norm = url_normalize.url_normalize(url)
     # Remove "#"
-    url_norm, url_frag = urllib.parse.urldefrag(url_normal)
+    url_norm, url_frag = urllib.parse.urldefrag(url_norm)
     return url_norm
 
 def curl(url):
@@ -62,17 +64,6 @@ def curl(url):
         return None
     return None
 
-def frontier_pop_unsafe(cur):
-    # Return tuple (page_id, url)
-    #with frontier_lock:
-    # TODO Do both in only one SQL command if possible
-    cur.execute("SELECT id, url FROM crawler.page WHERE page_type_code = 'FRONTIER' ORDER BY id ASC")
-    res = cur.fetchone()
-    if res != None:
-        cur.execute("UPDATE crawler.page SET page_type_code = 'PROCESSING' WHERE id = %s", (res[0],))
-    #print("Frontier pop result: " + str(res))
-    return res
-
 def frontier_append(cur, url, from_page_id=None, robots=None):
     # Allow only *.gov.si
     domain = urllib.parse.urlparse(url).netloc # TODO Don't do this in 2 places
@@ -86,14 +77,24 @@ def frontier_append(cur, url, from_page_id=None, robots=None):
             # print("Disallowed URL: " + url)
             return None
     
-    with frontier_lock: # Is the lock needed?
-        # Check if URL already exists in frontier
+    with frontier_lock:
+        # Check if URL already exists in page table
         cur.execute("SELECT id FROM crawler.page WHERE url = %s", (url,))
-        if cur.fetchone() != None:
+        res = cur.fetchone()
+        if res != None:
+            # If link doesn't exist yet, add it
+            if from_page_id != None:
+                cur.execute("SELECT * FROM crawler.link WHERE from_page = %s AND to_page = %s", (from_page_id, res[0]))
+                if cur.fetchone() == None:
+                    cur.execute("INSERT INTO crawler.link(from_page, to_page) VALUES (%s, %s)", (from_page_id, res[0]))
             return None
         # Insert URL into frontier
-        cur.execute("INSERT INTO crawler.page(url, page_type_code) VALUES (%s, 'FRONTIER') RETURNING id", (url,))
-        page_id = cur.fetchone()[0]
+        cur.execute("INSERT INTO crawler.page(url, page_type_code, accessed_time) VALUES (%s, 'FRONTIER', now()) RETURNING id", (url,))
+        res = cur.fetchone()
+        if res == None:
+            print("ERROR: Frontier append failed")
+            return None
+        page_id = res[0]
         if from_page_id != None:
             cur.execute("INSERT INTO crawler.link(from_page, to_page) VALUES (%s, %s)", (from_page_id, page_id))    
         #print("Added " + url + " to frontier.")
@@ -112,13 +113,20 @@ def crawl(thread_id, conn):
     cur = conn.cursor()
 
     # Main loop
-    max_pages = 10
+    max_pages = 20
     while max_pages > 0:
         # Get next element in frontier
         if not thread_active[thread_id]:
             time.sleep(0.5) # Add small delay while waiting
         with frontier_lock:
-            frontier_element = frontier_pop_unsafe(cur)
+            # TODO Do both in only one SQL command if possible
+            cur.execute("SELECT id, url FROM crawler.page WHERE page_type_code = 'FRONTIER' ORDER BY accessed_time ASC")
+            res = cur.fetchone()
+            if res != None:
+                cur.execute("UPDATE crawler.page SET page_type_code = 'PROCESSING' WHERE id = %s", (res[0],))
+            #print("Frontier pop result: " + str(res))
+            frontier_element =  res
+
             if frontier_element == None:
                 thread_active[thread_id] = False
                 if not any(thread_active):
@@ -147,7 +155,7 @@ def crawl(thread_id, conn):
                 robots = urllib.robotparser.RobotFileParser()
                 robots.parse(robots_content.split('\n'))
 
-                sitemaps = None
+                sitemaps = None # robots.site_maps()
                 if sitemaps != None and len(sitemaps) > 0:
                     sitemap_content = curl(sitemaps[0])
                 else:
@@ -163,6 +171,29 @@ def crawl(thread_id, conn):
                 robots.parse(robots_content.split('\n'))
             site_id = res[0]
 
+        # Check crawl delay
+        with history_lock:
+            if domain in history:
+                last_time, crawl_delay = history[domain]
+                curr_time = time.time()
+                if curr_time - last_time > crawl_delay:
+                    history[domain] = (curr_time, crawl_delay)
+                else: # Add site to the back of the frontier
+                    print(f"Need to wait {curr_time - last_time} more seconds")
+                    with frontier_lock:
+                        cur.execute("UPDATE crawler.page " +
+                        "SET page_type_code = 'FRONTIER', accessed_time = now() " +
+                        "WHERE id = %s", (page_id,))
+                    continue
+            else:
+                crawl_delay = CRAWL_DELAY
+                if robots != None:
+                    cd = robots.crawl_delay(USER_AGENT)
+                    if cd != None:
+                        crawl_delay = float(cd)
+                history[domain] = (time.time(), crawl_delay)
+
+
         # Get html
         try:
             driver.get(url)
@@ -170,18 +201,24 @@ def crawl(thread_id, conn):
         except:
             print(f"[{thread_id}] Error visiting URL!")
             with frontier_lock:
-                cur.execute("DELETE FROM crawler.link WHERE to_page = %s", (page_id,))    
-                cur.execute("DELETE FROM crawler.page WHERE id = %s", (page_id,))
+                # cur.execute("DELETE FROM crawler.link WHERE to_page = %s", (page_id,))    
+                # cur.execute("DELETE FROM crawler.page WHERE id = %s", (page_id,))
+                cur.execute("UPDATE crawler.page " +
+                "SET site_id = %s, page_type_code = 'UNAVAILABLE', html_content = NULL, " +
+                "html_hash = NULL, http_status_code = NULL, accessed_time = now() " +
+                "WHERE id = %s", (site_id, page_id))
             continue
         html = driver.page_source
         page_type_code = 'HTML'
 
         # Get html hash
         html_hash = str(hash(html))
-        cur.execute("SELECT * FROM crawler.page WHERE html_hash = %s", (html_hash,))
+        cur.execute("SELECT id FROM crawler.page WHERE html_hash = %s", (html_hash,))
         res = cur.fetchone()
-        if res != None:
-            page_type_code = 'DUPLICATE'
+        duplicate_page_id = None
+        if res != None: # Duplicate detected
+            duplicate_page_id = res[0]
+            print("Found a duplicate!")
 
         # Get HTTP status code
         try:
@@ -193,10 +230,18 @@ def crawl(thread_id, conn):
             http_status_code = None
 
         # Update page in DB
-        cur.execute("UPDATE crawler.page " +
-            "SET site_id = %s, page_type_code = %s, html_content = %s, " +
-            "html_hash = %s, http_status_code = %s, accessed_time = now() " +
-            "WHERE id = %s", (site_id, page_type_code, html, html_hash, http_status_code, page_id))
+        if duplicate_page_id == None:
+            cur.execute("UPDATE crawler.page " +
+                "SET site_id = %s, page_type_code = %s, html_content = %s, " +
+                "html_hash = %s, http_status_code = %s, accessed_time = now() " +
+                "WHERE id = %s", (site_id, page_type_code, html, html_hash, http_status_code, page_id))
+        else:
+            cur.execute("UPDATE crawler.page " +
+                "SET site_id = %s, page_type_code = 'DUPLICATE', html_content = NULL, " +
+                "html_hash = NULL, http_status_code = %s, accessed_time = now() " +
+                "WHERE id = %s", (site_id, http_status_code, page_id))
+            cur.execute("INSERT INTO crawler.link(from_page, to_page) VALUES (%s, %s)", (page_id, duplicate_page_id))
+            continue
 
         # Find all links
         elems = driver.find_elements_by_xpath("//a[@href]")
@@ -231,6 +276,8 @@ def crawl(thread_id, conn):
                
                 idata = requests.get(urllib.parse.urljoin(url,src))
                 cur.execute("INSERT INTO crawler.image(page_id, filename, content_type,data,accessed_time) VALUES (%s, %s, %s, %s,now()) ", (page_id,iname,idata.headers["Content-Type"],idata.content))
+        except:
+            pass
 
     # Cleanup
     thread_active[thread_id] = False
@@ -251,12 +298,12 @@ if __name__ == "__main__":
                 frontier_append(cur, seed_url, None, None)
 
 
-    # # Start the crawler
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
-    #     for i in range(NUM_THREADS):
-    #         executor.submit(crawl, i, conn)
+    # Start the crawler
+    with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+        for i in range(NUM_THREADS):
+            executor.submit(crawl, i, conn)
 
-    crawl(0, conn)
+    # crawl(0, conn)
 
     conn.close()
 

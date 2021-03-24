@@ -56,6 +56,7 @@ INSERT INTO crawler.page_type VALUES
 	('HTML'),
 	('BINARY'),
 	('DUPLICATE'),
+    ('UNAVAILABLE')
 	('FRONTIER'),
     ('PROCESSING');
 
