@@ -12,6 +12,8 @@ import requests
 import hashlib
 import time
 import re
+import signal
+import sys
 from bs4 import BeautifulSoup as BSHTML 
 from pathlib import Path  
 
@@ -39,6 +41,7 @@ frontier_lock = threading.Lock()
 history_lock = threading.Lock()
 history = {}
 thread_active = [True for _ in range(NUM_THREADS)]
+is_running = True
 
 
 
@@ -103,6 +106,9 @@ def frontier_append(cur, url, from_page_id=None, robots=None):
 def crawl(thread_id, conn):
     print("===Thread " + str(thread_id) + " started===")
 
+    f_info = open("info.log", "a")
+    f_link = open("onclick.log", "a")
+
     # Create Selenium webdriver and set User-Agent
     profile = webdriver.FirefoxProfile()
     profile.set_preference("general.useragent.override", USER_AGENT)
@@ -113,8 +119,8 @@ def crawl(thread_id, conn):
     cur = conn.cursor()
 
     # Main loop
-    max_pages = 20
-    while max_pages > 0:
+    max_pages = 5
+    while is_running and max_pages > 0:
         # Get next element in frontier
         if not thread_active[thread_id]:
             time.sleep(0.5) # Add small delay while waiting
@@ -179,7 +185,7 @@ def crawl(thread_id, conn):
                 if curr_time - last_time > crawl_delay:
                     history[domain] = (curr_time, crawl_delay)
                 else: # Add site to the back of the frontier
-                    print(f"Need to wait {curr_time - last_time} more seconds")
+                    # print(f"Need to wait {curr_time - last_time} more seconds")
                     with frontier_lock:
                         cur.execute("UPDATE crawler.page " +
                         "SET page_type_code = 'FRONTIER', accessed_time = now() " +
@@ -243,24 +249,44 @@ def crawl(thread_id, conn):
             cur.execute("INSERT INTO crawler.link(from_page, to_page) VALUES (%s, %s)", (page_id, duplicate_page_id))
             continue
 
-        # Find all links
-        elems = driver.find_elements_by_xpath("//a[@href]")
+        # Find all href links
+        elems = driver.find_elements_by_xpath("//*[@href]")
         for elem in elems:
             href = elem.get_attribute("href")
             if href != None:
+                href = urllib.parse.urljoin(url, href)
                 href_norm = normalize_url(href)
-                if href_norm.startswith("mailto:"):
-                    continue
-                elif href_norm.startswith("tel:"):
+                if href_norm.startswith("mailto:") or href_norm.startswith("tel:"):
+                    f_info.write(href_norm + "\n")
                     continue
                 frontier_append(cur, href_norm, page_id, robots)
 
-       
+        # Find all onclick links
+        # document.location, self.location, window.location, location.href
+        elems = driver.find_elements_by_xpath("//*[@onclick]")
+        for elem in elems:
+            onclick = elem.get_attribute("onclick")
+            if onclick != None:
+                f_link.write(onclick + "\n--------\n")
+                # matches = re.findall(r"((document\.location)|(location\.href)|(self\.location)|(window\.location))(.|\n)*?(;|$)", onclick)
+                matches = re.findall(r"(((document|window|self)\.location|location\.href)[^;]*)", onclick)
+                for match in matches:
+                    result = re.search("(\".*\")|('.*')|(`.*`)", match[0])
+                    if result != None:
+                        onclick_url = result.group()[1:-1]
+                        onclick_url = urllib.parse.urljoin(url, onclick_url)
+                        onclick_url_norm = normalize_url(onclick_url)
+
+                        f_link.write(onclick_url_norm + "\n")
+
+                        frontier_append(cur, onclick_url_norm, page_id, robots)
+                f_link.write("\n\n")
+
 
         # Finding value of src
-        soup = BSHTML(html) 
+        soup = BSHTML(html, features="html.parser") 
         images = soup.findAll('img')
-        image_id=None
+        image_id = None
         try:
             for image in images:
                 src= image['src'] 
@@ -280,13 +306,30 @@ def crawl(thread_id, conn):
             pass
 
     # Cleanup
+    f_info.close()
+    f_link.close()
+
     thread_active[thread_id] = False
     cur.close()
     driver.close()
     print("===Thread " + str(thread_id) + " finished===")
 
 
+# def interrupt_handler(sig, frame):
+#     global is_running
+#     if is_running:
+#         is_running = False
+#         print("Interrupt received, stopping crawler...")
+#         # while any(thread_active):
+#         #     time.sleep(2)   
+#         #     print("Waiting...")
+#         # print("Bye.")
+
+
 if __name__ == "__main__":
+    # # Add interrupt handler
+    # signal.signal(signal.SIGINT, interrupt_handler)
+
     # Connect to DB
     conn = psycopg2.connect(host="localhost", user="user", password="SecretPassword")
     conn.autocommit = True

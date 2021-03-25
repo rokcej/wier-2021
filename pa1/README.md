@@ -51,16 +51,16 @@ python crawler/crawler.py
 
 ## TODO
 
-* Get images
+* (DONE) Get images
 * (DONE) Remove # from URLs?
-* Don't send too many requests to the same server too quickly (maybe add a minimum delay) (5 seconds)
+* (DONE) Don't send too many requests to the same server too quickly (maybe add a minimum delay) (5 seconds)
 * (DONE) Multiple threads
 * Collect emails and telephone numbers (for educational purposes only!)
 * (DONE) Add link even if site is already in the DB
 * (DONE) Selenium timeout when site doesn't load???
-* Crawl-delay
+* (DONE) Crawl-delay
 * (DONE) Add link to existing URLs
-* Get links from onclick events
+* (DONE) Get links from onclick events
 * Add DB to repository
 * Interrupt handler
 
