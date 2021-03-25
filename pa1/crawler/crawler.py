@@ -1,6 +1,5 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-from bs4 import BeautifulSoup
 import concurrent.futures
 import threading
 import url_normalize
@@ -10,12 +9,13 @@ import urllib.request
 import urllib.robotparser
 import requests
 import hashlib
+import socket
 import time
 import re
 import signal
 import sys
 from bs4 import BeautifulSoup as BSHTML 
-from pathlib import Path  
+from pathlib import Path
 
 # Parameters
 USER_AGENT = "fri-ieps-mr"
@@ -104,6 +104,8 @@ def frontier_append(cur, url, from_page_id=None, robots=None):
         return page_id
 
 def crawl(thread_id, conn):
+    global is_running
+
     print("===Thread " + str(thread_id) + " started===")
 
     f_info = open("info.log", "a")
@@ -119,18 +121,15 @@ def crawl(thread_id, conn):
     cur = conn.cursor()
 
     # Main loop
-    max_pages = 5
-    while is_running and max_pages > 0:
+    while is_running:
         # Get next element in frontier
         if not thread_active[thread_id]:
             time.sleep(0.5) # Add small delay while waiting
         with frontier_lock:
-            # TODO Do both in only one SQL command if possible
             cur.execute("SELECT id, url FROM crawler.page WHERE page_type_code = 'FRONTIER' ORDER BY accessed_time ASC")
             res = cur.fetchone()
             if res != None:
                 cur.execute("UPDATE crawler.page SET page_type_code = 'PROCESSING' WHERE id = %s", (res[0],))
-            #print("Frontier pop result: " + str(res))
             frontier_element =  res
 
             if frontier_element == None:
@@ -139,8 +138,6 @@ def crawl(thread_id, conn):
                     break
                 continue
             thread_active[thread_id] = True
-
-        max_pages -= 1
 
         # Get URL and domain
         page_id, url = frontier_element
@@ -161,7 +158,7 @@ def crawl(thread_id, conn):
                 robots = urllib.robotparser.RobotFileParser()
                 robots.parse(robots_content.split('\n'))
 
-                sitemaps = None # robots.site_maps()
+                sitemaps = robots.site_maps()
                 if sitemaps != None and len(sitemaps) > 0:
                     sitemap_content = curl(sitemaps[0])
                 else:
@@ -188,8 +185,9 @@ def crawl(thread_id, conn):
                     # print(f"Need to wait {curr_time - last_time} more seconds")
                     with frontier_lock:
                         cur.execute("UPDATE crawler.page " +
-                        "SET page_type_code = 'FRONTIER', accessed_time = now() " +
-                        "WHERE id = %s", (page_id,))
+                            "SET page_type_code = 'FRONTIER', accessed_time = now() " +
+                            "WHERE id = %s", (page_id,))
+                    time.sleep(0.1) # Small delay before getting next frontier element
                     continue
             else:
                 crawl_delay = CRAWL_DELAY
@@ -315,20 +313,27 @@ def crawl(thread_id, conn):
     print("===Thread " + str(thread_id) + " finished===")
 
 
-# def interrupt_handler(sig, frame):
-#     global is_running
-#     if is_running:
-#         is_running = False
-#         print("Interrupt received, stopping crawler...")
-#         # while any(thread_active):
-#         #     time.sleep(2)   
-#         #     print("Waiting...")
-#         # print("Bye.")
+# Accept socket connections and process messages
+def listen(sock):
+    global is_running
+    while is_running:
+        conn, _ = sock.accept()
+        with conn:
+            while True:
+                data = conn.recv(1024)
+                if not data:
+                    break
+                elif data == b"kill":
+                    print("[SERVER] Received kill signal, stopping ...")
+                    is_running = False
+                    break
 
 
 if __name__ == "__main__":
-    # # Add interrupt handler
-    # signal.signal(signal.SIGINT, interrupt_handler)
+    # Create server socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IPv4, TCP
+    sock.bind(("localhost", 2803)) # localhost:2803
+    sock.listen()
 
     # Connect to DB
     conn = psycopg2.connect(host="localhost", user="user", password="SecretPassword")
@@ -340,13 +345,23 @@ if __name__ == "__main__":
             for seed_url in SEED_URLS:
                 frontier_append(cur, seed_url, None, None)
 
-
     # Start the crawler
-    with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
-        for i in range(NUM_THREADS):
-            executor.submit(crawl, i, conn)
-
     # crawl(0, conn)
-
+    with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS+1) as executor:
+        # Start server thread
+        future_listen = executor.submit(listen, sock)
+        # Start crawler threads
+        futures = []
+        for i in range(NUM_THREADS):
+            futures.append(executor.submit(crawl, i, conn))
+        # Join crawler threads
+        for future in futures:
+            future.result()
+        is_running = False
+        # Stop server thread
+        sock.close()
+        
+   
+    # Cleanup
     conn.close()
 

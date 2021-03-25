@@ -79,3 +79,4 @@ python crawler/crawler.py
 * Pri slikah je dovolj da upostevamo ime ali pa content-type header
 * Pri onclick preveri VSAJ location.href in document.location
 * Filename atribut v headerju za linke ki npr. nimajo koncnice .pdf, ampak je content-type pdf
+* ~50k strani
