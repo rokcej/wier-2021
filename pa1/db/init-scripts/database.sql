@@ -52,6 +52,21 @@ CREATE TABLE crawler.image (
 
 CREATE INDEX idx_image_page_id ON crawler.image(page_id);
 
+CREATE TABLE crawler.data_type ( 
+	code varchar(20) NOT NULL,	
+	PRIMARY KEY (code)
+);
+
+CREATE TABLE crawldb.page_data ( 
+	id serial NOT NULL,
+	page_id integer NOT NULL,
+	data_type_code varchar(20),
+	"data" bytea,
+    PRIMARY KEY (id),
+    FOREIGN KEY (page_id) REFERENCES crawler.page(id),
+    FOREIGN KEY (data_type_code) REFERENCES crawler.data_type(code)
+);
+
 INSERT INTO crawler.page_type VALUES 
 	('HTML'),
 	('BINARY'),
@@ -60,3 +75,9 @@ INSERT INTO crawler.page_type VALUES
 	('FRONTIER'),
     ('PROCESSING');
 
+INSERT INTO crawler.data_type VALUES 
+	('PDF'),
+	('DOC'),
+	('DOCX'),
+	('PPT'),
+	('PPTX');
