@@ -93,7 +93,12 @@ INSERT INTO crawler.data_type VALUES
 	('PDF'),
 	('DOC'),
 	('DOCX'),
+    ('DOCM'),
 	('PPT'),
 	('PPTX'),
+    ('PPTM'),
     ('XLS'),
-    ('XLSX');
+    ('XLSX'),
+    ('XLSM'),
+    ('ZIP'),
+    ('RAR');

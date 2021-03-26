@@ -63,7 +63,7 @@ SELECT tel FROM crawler.tel;
 
 ## TODO
 
-
+* Robots http/https test
 * Check if link is an image/document
 * (DONE) Get images
 * (DONE) Remove # from URLs?

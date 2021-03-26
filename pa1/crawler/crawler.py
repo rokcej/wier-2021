@@ -30,7 +30,7 @@ SEED_URLS = [
     # "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
     # "https://www.umar.gov.si/fileadmin/user_upload/publikacije/kratke_analize/Strategija_dolgozive_druzbe/Strategija_dolgozive_druzbe.pdf"
 ]
-NUM_THREADS = 6
+NUM_THREADS = 4
 CRAWL_DELAY = 5
 SELENIUM_WAIT = 5 # Selenium minimum wait time
 SELENIUM_TIMEOUT = 15 # Selenium maximum load time
@@ -72,7 +72,7 @@ def curl(url):
 
 def frontier_append(cur, page_url, from_page_id=None, robots=None):
     # Allow only *.gov.si
-    domain = urllib.parse.urlparse(page_url).netloc # TODO Don't do this in 2 places
+    domain = urllib.parse.urlparse(page_url).netloc
     if re.search(r"^(.+\.)?gov\.si$", domain) == None:
         #print("Not *.gov.si URL: " + page_url)
         return None
@@ -81,6 +81,9 @@ def frontier_append(cur, page_url, from_page_id=None, robots=None):
     if robots != None:
         if not robots.can_fetch(USER_AGENT, page_url):
             # print("Disallowed URL: " + page_url)
+            f = open("robots.log", "a")
+            f.write(f"[DISALLOWED] {page_url} on {domain}\n")
+            f.close()
             return None
     
     with frontier_lock:
@@ -107,6 +110,11 @@ def frontier_append(cur, page_url, from_page_id=None, robots=None):
         return page_id
 
 def process_link(cur, page_id, page_url, robots, href, f_info, f_link, f_debug):
+    # Check if link is javascript
+    if href.startswith("javascript:"):
+        # f_debug.write(f"[JAVASCRIPT HREF] {href}\n\t{page_url}\n")
+        return
+
     # Check if link is mailto: or tel:
     if href.startswith("mailto:"):
         email = href[7:].split("?")[0]
@@ -131,12 +139,16 @@ def process_link(cur, page_id, page_url, robots, href, f_info, f_link, f_debug):
     href_parsed = urllib.parse.urlparse(href)
     href_path = href_parsed.path
     href_query = href_parsed.query
+    queries = urllib.parse.parse_qs(href_query)
     # Check if link is a document
-    data_exts = { ".pdf": "PDF",
-        ".doc": "DOC", ".docx": "DOCX",
-        ".ppt": "PPT", ".pptx": "PPTX",
-        ".xls": "XLS", ".xlsx": "XLSX" }
+    data_exts = { ".pdf": "PDF", ".zip": "ZIP", ".rar": "RAR",
+        ".doc": "DOC", ".docx": "DOCX", ".docm": "DOCM",
+        ".ppt": "PPT", ".pptx": "PPTX", ".pptm": "PPTM",
+        ".xls": "XLS", ".xlsx": "XLSX", ".xlsm": "XLSM" }
     for data_ext in data_exts.keys():
+        # for q in queries:
+        #     if queries[q].lower().endswith(data_ext):
+        #           pass # One of the query parameters is a filename
         if href_path.lower().endswith(data_ext) or href_query.lower().endswith(data_ext):
             data_type_code = data_exts[data_ext]
             cur.execute("INSERT INTO crawler.page_data(page_id, data_type_code, data) VALUES (%s, %s, NULL) ", (page_id, data_type_code))
@@ -155,7 +167,7 @@ def process_link(cur, page_id, page_url, robots, href, f_info, f_link, f_debug):
 
 
 def crawl(thread_id, conn):
-    global is_running
+    global is_running, history
 
     print("===Thread " + str(thread_id) + " started===")
 
@@ -204,17 +216,25 @@ def crawl(thread_id, conn):
         if res == None:
             # Insert site into DB
             robots_content = curl("http://" + domain + "/robots.txt")
+            if robots_content == None: # Try https
+                robots_content = curl("https://" + domain + "/robots.txt")
             sitemap_content = None
             
             if robots_content != None:
                 robots = urllib.robotparser.RobotFileParser()
                 robots.parse(robots_content.split('\n'))
+                robots.set_url("http://" + domain + "/robots.txt")
 
                 sitemaps = robots.site_maps()
                 if sitemaps != None and len(sitemaps) > 0:
                     sitemap_content = curl(sitemaps[0])
+                    f = open("robots.log", "a")
+                    f.write(f"[SITEMAP] {sitemaps[0]} on {domain}\n")
+                    f.close()
                 else:
                     sitemap_content = curl("http://" + domain + "/sitemap.xml")
+                    if sitemap_content == None: # Try https
+                        sitemap_content = curl("https://" + domain + "/sitemap.xml")
 
             cur.execute("INSERT INTO crawler.site(domain, robots_content, sitemap_content) VALUES (%s, %s, %s) RETURNING id", (domain, robots_content, sitemap_content))
             site_id = cur.fetchone()[0]
@@ -224,6 +244,7 @@ def crawl(thread_id, conn):
             if robots_content != None:
                 robots = urllib.robotparser.RobotFileParser()
                 robots.parse(robots_content.split('\n'))
+                robots.set_url("http://" + domain + "/robots.txt")
             site_id = res[0]
 
         # Check crawl delay
@@ -247,6 +268,9 @@ def crawl(thread_id, conn):
                     cd = robots.crawl_delay(USER_AGENT)
                     if cd != None:
                         crawl_delay = float(cd)
+                        f = open("robots.log", "a")
+                        f.write(f"[CRAWL DELAY] {cd} on {domain}\n")
+                        f.close()
                 history[domain] = (time.time(), crawl_delay)
 
         # Get HTTP header code
@@ -322,7 +346,8 @@ def crawl(thread_id, conn):
             "WHERE id = %s", (site_id, html, html_hash, http_status_code, page_id))
             
         # Find all href links
-        elems = driver.find_elements_by_xpath("//a[@href]") # "//body//*[@href]"
+        # <area> link example - https://www.stopbirokraciji.gov.si/
+        elems = driver.find_elements_by_xpath("//a[@href] | //area[@href]") # "//body//*[@href]"
         for elem in elems:
             href = elem.get_attribute("href")
             if href != None:
@@ -331,7 +356,7 @@ def crawl(thread_id, conn):
         elems = driver.find_elements_by_xpath("//body//*[@href]")
         for elem in elems:
             href = elem.get_attribute("href")
-            if elem.tag_name != "a" and href != None and not href.startswith("#"):
+            if elem.tag_name != "a" and elem.tag_name != "area" and href != None and not href.startswith("#") and not href.startswith("javascript:"):
                 f_debug.write(f"[HREF TAG] <{elem.tag_name}>, href='{href}' on URL {page_url}\n")
 
         # Find all onclick links
@@ -357,8 +382,11 @@ def crawl(thread_id, conn):
         for elem in elems:
             img_src = elem.get_attribute("src")
             if img_src != None:
+                # Ignore empty src
+                if img_src.strip() == "":
+                    continue
                 # Ignore base64 images
-                if (img_src.startswith("data:")):
+                if img_src.startswith("data:"):
                     continue
 
                 # Get image name
@@ -376,8 +404,8 @@ def crawl(thread_id, conn):
                 if img_name == None:
                     img_name = os.path.basename(img_path)
                     if img_name == "":
-                        print(f"[IMG NAME ERROR] {img_src}")
-                        f_debug.write(f"[IMG NAME ERROR] {img_src}\n")
+                        print(f"[IMG NAME ERROR] src {img_src} on URL {page_url}")
+                        f_debug.write(f"[IMG NAME ERROR] src {img_src} on URL {page_url}\n")
                         img_name = None
 
                 # Get image content type
@@ -410,12 +438,12 @@ def crawl(thread_id, conn):
                 
 
                 if img_name == None or img_content_type == None:
-                    print(f"[IMG META ERROR] {img_src}")
-                    f_debug.write(f"[IMG META ERROR] {img_src}\n")
+                    print(f"[IMG META ERROR] src {img_src} on URL {page_url}")
+                    f_debug.write(f"[IMG META ERROR] src {img_src} on URL {page_url}\n")
 
 
                 cur.execute("INSERT INTO crawler.image(page_id, filename, content_type) " +
-                    "VALUES (%s, %s, %s) ", (page_id, img_name, img_ext))
+                    "VALUES (%s, %s, %s) ", (page_id, img_name, img_content_type))
 
                 # if img_name == None:
                 #     print(f"[IMG UNSUPP] {img_src}")
@@ -437,7 +465,7 @@ def crawl(thread_id, conn):
 
 # Accept socket connections and process messages
 def listen(sock):
-    global is_running
+    global is_running, history
     while is_running:
         conn, _ = sock.accept()
         with conn:
@@ -447,6 +475,7 @@ def listen(sock):
                     break
                 elif data == b"kill":
                     print("[SERVER] Received kill signal, stopping ...")
+                    print("[SERVER] History length: " + str(len(history)))
                     is_running = False
                     break
 
