@@ -67,6 +67,20 @@ CREATE TABLE crawler.page_data (
     FOREIGN KEY (data_type_code) REFERENCES crawler.data_type(code)
 );
 
+CREATE TABLE crawler.email (
+    email varchar(255) NOT NULL,
+    page_id integer NOT NULL,
+    PRIMARY KEY (email),
+    FOREIGN KEY (page_id) REFERENCES crawler.page(id)
+);
+
+CREATE TABLE crawler.tel (
+    tel varchar(20) NOT NULL,
+    page_id integer NOT NULL,
+    PRIMARY KEY (tel),
+    FOREIGN KEY (page_id) REFERENCES crawler.page(id)
+);
+
 INSERT INTO crawler.page_type VALUES 
 	('HTML'),
 	('BINARY'),
@@ -80,4 +94,6 @@ INSERT INTO crawler.data_type VALUES
 	('DOC'),
 	('DOCX'),
 	('PPT'),
-	('PPTX');
+	('PPTX'),
+    ('XLS'),
+    ('XLSX');

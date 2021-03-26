@@ -30,9 +30,9 @@ SEED_URLS = [
     # "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
     # "https://www.umar.gov.si/fileadmin/user_upload/publikacije/kratke_analize/Strategija_dolgozive_druzbe/Strategija_dolgozive_druzbe.pdf"
 ]
-NUM_THREADS = 8
+NUM_THREADS = 6
 CRAWL_DELAY = 5
-SELENIUM_WAIT = 4 # Selenium minimum wait time
+SELENIUM_WAIT = 5 # Selenium minimum wait time
 SELENIUM_TIMEOUT = 15 # Selenium maximum load time
 REQUEST_TIMEOUT = 5 # Timeout for manual requests
 
@@ -108,34 +108,47 @@ def frontier_append(cur, page_url, from_page_id=None, robots=None):
 
 def process_link(cur, page_id, page_url, robots, href, f_info, f_link, f_debug):
     # Check if link is mailto: or tel:
-    if href.startswith("mailto:") or href.startswith("tel:"):
-        f_info.write(href + "\n")
+    if href.startswith("mailto:"):
+        email = href[7:].split("?")[0]
+        f_info.write(f"[EMAIL] {href}\n\t{email}\n")
+        cur.execute("SELECT * FROM crawler.email WHERE email = %s", (email,))
+        if cur.fetchone() == None:
+            cur.execute("INSERT INTO crawler.email(email, page_id) VALUES (%s, %s)", (email, page_id))
+        return
+    elif href.startswith("tel:"):
+        tel = href[4:]
+        f_info.write(f"[TEL] {href}\n\t{tel}\n")
+        cur.execute("SELECT * FROM crawler.tel WHERE tel = %s", (tel,))
+        if cur.fetchone() == None:
+            cur.execute("INSERT INTO crawler.tel(tel, page_id) VALUES (%s, %s)", (tel, page_id))
         return
 
-    # Temp
+    # Error check
     if href.find("mailto:") >= 0 or href.find("tel:") >= 0:
         f_info.write("[MAILTO ERROR] " + href + "\n")
 
+    # Parse link
     href_parsed = urllib.parse.urlparse(href)
-    href_path = href_parsed.path.lower()
-    href_query = href_parsed.query.lower()
+    href_path = href_parsed.path
+    href_query = href_parsed.query
     # Check if link is a document
-    data_exts = { ".pdf": "PDF", ".doc": "DOC", ".docx": "DOCX", ".ppt": "PPT", ".pptx": "PPTX", ".pptm": "PPTM" }
-    data_type_code = None
+    data_exts = { ".pdf": "PDF",
+        ".doc": "DOC", ".docx": "DOCX",
+        ".ppt": "PPT", ".pptx": "PPTX",
+        ".xls": "XLS", ".xlsx": "XLSX" }
     for data_ext in data_exts.keys():
-        if href_path.endswith(data_ext) or href_query.endswith(data_ext):
-            #print(data_ext + ": " + href)
+        if href_path.lower().endswith(data_ext) or href_query.lower().endswith(data_ext):
             data_type_code = data_exts[data_ext]
             cur.execute("INSERT INTO crawler.page_data(page_id, data_type_code, data) VALUES (%s, %s, NULL) ", (page_id, data_type_code))
-    if data_type_code != None:
-        return
+            return
 
-    # Temp
+    # Error check
     for data_ext in data_exts.keys():
         if href.lower().find(data_ext) >= 0:
             print(f"[DOC ERROR] {data_ext}: {href}")
             f_debug.write(f"[DOC ERROR] {data_ext}: {href}\n")
 
+    # Add link to frontier
     href_abs = urllib.parse.urljoin(page_url, href)
     href_norm = normalize_url(href_abs)
     frontier_append(cur, href_norm, page_id, robots)
@@ -248,7 +261,7 @@ def crawl(thread_id, conn):
             pass
         except requests.exceptions.Timeout:
             pass
-        except requests.exceptions.RetryError:
+        except requests.exceptions.ConnectionError:
             pass
         except Exception as e:
             print(f"[HEAD UNKNOWN] Error getting URL HEAD: {page_url}\n\t{e}")
@@ -309,11 +322,17 @@ def crawl(thread_id, conn):
             "WHERE id = %s", (site_id, html, html_hash, http_status_code, page_id))
             
         # Find all href links
-        elems = driver.find_elements_by_xpath("//*[@href]")
+        elems = driver.find_elements_by_xpath("//a[@href]") # "//body//*[@href]"
         for elem in elems:
             href = elem.get_attribute("href")
             if href != None:
                 process_link(cur, page_id, page_url, robots, href, f_info, f_link, f_debug)
+        # Check if any non-<a> tags contain href for debugging purposes
+        elems = driver.find_elements_by_xpath("//body//*[@href]")
+        for elem in elems:
+            href = elem.get_attribute("href")
+            if elem.tag_name != "a" and href != None and not href.startswith("#"):
+                f_debug.write(f"[HREF TAG] <{elem.tag_name}>, href='{href}' on URL {page_url}\n")
 
         # Find all onclick links
         # document.location, self.location, window.location, location.href
@@ -379,6 +398,9 @@ def crawl(thread_id, conn):
                         f_debug.write(f"[IMG HEAD SSL] SSL exception on src: {img_url}\n")
                     except requests.exceptions.Timeout:
                         f_debug.write(f"[IMG HEAD TIMEOUT] Timeout exception on src: {img_url}\n")
+                    except requests.exceptions.ConnectionError:
+                        f_debug.write(f"[IMG HEAD CONNECTION] Connection error on src: {img_url}\n")
+                        pass
                     except Exception as e:
                         print(f"[IMG HEAD UNKNOWN] Unknown exception on src: {img_url}\n\tOn page: {page_url}\n\t{e}")
                         f_debug.write(f"[IMG HEAD UNKNOWN] Unknown exception on src: {img_url}\n\t{e}\n")

@@ -18,12 +18,19 @@ docker run --name postgresql-wier -e POSTGRES_PASSWORD=SecretPassword \
 -e POSTGRES_USER=user -v $PWD/db/pgdata:/var/lib/postgresql/data \
 -v $PWD/db/init-scripts:/docker-entrypoint-initdb.d -p 5432:5432 -d postgres:12.2
 ```
-```
-docker exec -it postgresql-wier psql -U user
-```
 * Run the crawler:
 ```bash
 python crawler/crawler.py
+```
+
+## Database Queries
+
+```
+docker exec -it postgresql-wier psql -U user
+```
+```
+SELECT email FROM crawler.email;
+SELECT tel FROM crawler.tel;
 ```
 
 
