@@ -1,5 +1,6 @@
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
+from seleniumwire import webdriver as wirewebdriver
+from selenium.common.exceptions import TimeoutException
 import concurrent.futures
 import threading
 import url_normalize
@@ -12,10 +13,9 @@ import hashlib
 import socket
 import time
 import re
+import os
 import signal
 import sys
-from bs4 import BeautifulSoup as BSHTML 
-from pathlib import Path
 
 # Parameters
 USER_AGENT = "fri-ieps-mr"
@@ -28,12 +28,13 @@ SEED_URLS = [
     # "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacije_ETRS89/Aplikacije/ETRS89-SI.zip",
     # "https://egp.gu.gov.si/egp/",
     # "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
-
+    # "https://www.umar.gov.si/fileadmin/user_upload/publikacije/kratke_analize/Strategija_dolgozive_druzbe/Strategija_dolgozive_druzbe.pdf"
 ]
-MIN_WAIT_TIME = 2 # Selenium timeout
-MAX_LOAD_TIME = 15
-NUM_THREADS = 4
+NUM_THREADS = 8
 CRAWL_DELAY = 5
+SELENIUM_WAIT = 4 # Selenium minimum wait time
+SELENIUM_TIMEOUT = 15 # Selenium maximum load time
+REQUEST_TIMEOUT = 5 # Timeout for manual requests
 
 
 # Multi-threading
@@ -53,10 +54,12 @@ def normalize_url(url):
 
 def curl(url):
     try:
-        res = requests.get(url, allow_redirects=True, headers={"User-Agent": USER_AGENT}, timeout=5)
+        res = requests.get(url, allow_redirects=True, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
         if res.status_code == 200:
-            content_type = res.headers["Content-Type"]
-            if content_type.startswith("text/") or content_type.startswith("application/xml"):
+            content_type = None
+            if "Content-Type" in res.headers:
+                content_type = res.headers["Content-Type"]
+            if content_type == None or content_type.startswith("text/") or content_type.startswith("application/xml"):
                 return res.text
             else:
                 f = open("./unsupported_content_type.log", "a")
@@ -67,22 +70,22 @@ def curl(url):
         return None
     return None
 
-def frontier_append(cur, url, from_page_id=None, robots=None):
+def frontier_append(cur, page_url, from_page_id=None, robots=None):
     # Allow only *.gov.si
-    domain = urllib.parse.urlparse(url).netloc # TODO Don't do this in 2 places
+    domain = urllib.parse.urlparse(page_url).netloc # TODO Don't do this in 2 places
     if re.search(r"^(.+\.)?gov\.si$", domain) == None:
-        #print("Not *.gov.si URL: " + url)
+        #print("Not *.gov.si URL: " + page_url)
         return None
 
     # Check robots.txt
     if robots != None:
-        if not robots.can_fetch(USER_AGENT, url):
-            # print("Disallowed URL: " + url)
+        if not robots.can_fetch(USER_AGENT, page_url):
+            # print("Disallowed URL: " + page_url)
             return None
     
     with frontier_lock:
         # Check if URL already exists in page table
-        cur.execute("SELECT id FROM crawler.page WHERE url = %s", (url,))
+        cur.execute("SELECT id FROM crawler.page WHERE url = %s", (page_url,))
         res = cur.fetchone()
         if res != None:
             # If link doesn't exist yet, add it
@@ -92,7 +95,7 @@ def frontier_append(cur, url, from_page_id=None, robots=None):
                     cur.execute("INSERT INTO crawler.link(from_page, to_page) VALUES (%s, %s)", (from_page_id, res[0]))
             return None
         # Insert URL into frontier
-        cur.execute("INSERT INTO crawler.page(url, page_type_code, accessed_time) VALUES (%s, 'FRONTIER', now()) RETURNING id", (url,))
+        cur.execute("INSERT INTO crawler.page(url, page_type_code, accessed_time) VALUES (%s, 'FRONTIER', now()) RETURNING id", (page_url,))
         res = cur.fetchone()
         if res == None:
             print("ERROR: Frontier append failed")
@@ -100,22 +103,58 @@ def frontier_append(cur, url, from_page_id=None, robots=None):
         page_id = res[0]
         if from_page_id != None:
             cur.execute("INSERT INTO crawler.link(from_page, to_page) VALUES (%s, %s)", (from_page_id, page_id))    
-        #print("Added " + url + " to frontier.")
+        #print("Added " + page_url + " to frontier.")
         return page_id
+
+def process_link(cur, page_id, page_url, robots, href, f_info, f_link, f_debug):
+    # Check if link is mailto: or tel:
+    if href.startswith("mailto:") or href.startswith("tel:"):
+        f_info.write(href + "\n")
+        return
+
+    # Temp
+    if href.find("mailto:") >= 0 or href.find("tel:") >= 0:
+        f_info.write("[MAILTO ERROR] " + href + "\n")
+
+    href_parsed = urllib.parse.urlparse(href)
+    href_path = href_parsed.path.lower()
+    href_query = href_parsed.query.lower()
+    # Check if link is a document
+    data_exts = { ".pdf": "PDF", ".doc": "DOC", ".docx": "DOCX", ".ppt": "PPT", ".pptx": "PPTX", ".pptm": "PPTM" }
+    data_type_code = None
+    for data_ext in data_exts.keys():
+        if href_path.endswith(data_ext) or href_query.endswith(data_ext):
+            #print(data_ext + ": " + href)
+            data_type_code = data_exts[data_ext]
+            cur.execute("INSERT INTO crawler.page_data(page_id, data_type_code, data) VALUES (%s, %s, NULL) ", (page_id, data_type_code))
+    if data_type_code != None:
+        return
+
+    # Temp
+    for data_ext in data_exts.keys():
+        if href.lower().find(data_ext) >= 0:
+            print(f"[DOC ERROR] {data_ext}: {href}")
+            f_debug.write(f"[DOC ERROR] {data_ext}: {href}\n")
+
+    href_abs = urllib.parse.urljoin(page_url, href)
+    href_norm = normalize_url(href_abs)
+    frontier_append(cur, href_norm, page_id, robots)
+
 
 def crawl(thread_id, conn):
     global is_running
 
     print("===Thread " + str(thread_id) + " started===")
 
-    f_info = open("info.log", "a")
-    f_link = open("onclick.log", "a")
+    f_info = open("info.log", "a", encoding="utf-8")
+    f_link = open("onclick.log", "a", encoding="utf-8")
+    f_debug = open("debug.log", "a", encoding="utf-8")
 
     # Create Selenium webdriver and set User-Agent
     profile = webdriver.FirefoxProfile()
     profile.set_preference("general.useragent.override", USER_AGENT)
-    driver = webdriver.Firefox(profile)
-    driver.set_page_load_timeout(MAX_LOAD_TIME)
+    driver = wirewebdriver.Firefox(profile)
+    driver.set_page_load_timeout(SELENIUM_TIMEOUT)
 
     # Create DB connection cursor
     cur = conn.cursor()
@@ -130,7 +169,7 @@ def crawl(thread_id, conn):
             res = cur.fetchone()
             if res != None:
                 cur.execute("UPDATE crawler.page SET page_type_code = 'PROCESSING' WHERE id = %s", (res[0],))
-            frontier_element =  res
+            frontier_element = res
 
             if frontier_element == None:
                 thread_active[thread_id] = False
@@ -140,9 +179,9 @@ def crawl(thread_id, conn):
             thread_active[thread_id] = True
 
         # Get URL and domain
-        page_id, url = frontier_element
-        print(f"[{thread_id}] Processing URL: " + url)
-        domain = urllib.parse.urlparse(url).netloc
+        page_id, page_url = frontier_element
+        # print(f"[{thread_id}] Processing URL: " + page_url)
+        domain = urllib.parse.urlparse(page_url).netloc
         
         # Get site data
         site_id = None
@@ -197,49 +236,65 @@ def crawl(thread_id, conn):
                         crawl_delay = float(cd)
                 history[domain] = (time.time(), crawl_delay)
 
+        # Get HTTP header code
+        http_status_code = None
+        page_content_type = None
+        try:
+            response = requests.head(page_url, allow_redirects=True, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+            http_status_code = response.status_code
+            if "Content-Type" in response.headers:
+                page_content_type = response.headers['Content-Type']
+        except requests.exceptions.SSLError:
+            pass
+        except requests.exceptions.Timeout:
+            pass
+        except requests.exceptions.RetryError:
+            pass
+        except Exception as e:
+            print(f"[HEAD UNKNOWN] Error getting URL HEAD: {page_url}\n\t{e}")
+            f_debug.write(f"[HEAD UNKNOWN] Error getting URL HEAD: {page_url}\n\t{e}\n")
+        
+        if page_content_type != None and not page_content_type.startswith("text/"):
+            cur.execute("UPDATE crawler.page " +
+                "SET site_id = %s, page_type_code = 'BINARY', " +
+                "http_status_code = %s, accessed_time = now() " +
+                "WHERE id = %s", (site_id, http_status_code, page_id))
+            continue
 
+        
         # Get html
         try:
-            driver.get(url)
-            time.sleep(MIN_WAIT_TIME)
-        except:
-            print(f"[{thread_id}] Error visiting URL!")
+            driver.get(page_url)
+            time.sleep(SELENIUM_WAIT)
+        except TimeoutException:
+            print(f"[GET TIMEOUT] Timeout on URL: {page_url}\n")
+            f_debug.write(f"[GET TIMEOUT] Timeout on URL: {page_url}\n\n")
             with frontier_lock:
-                # cur.execute("DELETE FROM crawler.link WHERE to_page = %s", (page_id,))    
-                # cur.execute("DELETE FROM crawler.page WHERE id = %s", (page_id,))
+                cur.execute("UPDATE crawler.page " +
+                "SET site_id = %s, page_type_code = 'UNAVAILABLE', html_content = NULL, " +
+                "html_hash = NULL, http_status_code = NULL, accessed_time = now() " +
+                "WHERE id = %s", (site_id, page_id))
+            continue
+        except Exception as e:
+            print(f"[GET UNKNOWN] Unable to get URL: {page_url}\n\t{e}")
+            f_debug.write(f"[GET UNKNOWN] Unable to get URL: {page_url}\n\t{e}\n")
+            with frontier_lock:
                 cur.execute("UPDATE crawler.page " +
                 "SET site_id = %s, page_type_code = 'UNAVAILABLE', html_content = NULL, " +
                 "html_hash = NULL, http_status_code = NULL, accessed_time = now() " +
                 "WHERE id = %s", (site_id, page_id))
             continue
         html = driver.page_source
-        page_type_code = 'HTML'
+        driver_requests = {}
+        for request in driver.requests:
+            driver_requests[request.url] = request.response
 
-        # Get html hash
+        # Get html hash and check for duplicates
         html_hash = str(hash(html))
         cur.execute("SELECT id FROM crawler.page WHERE html_hash = %s", (html_hash,))
         res = cur.fetchone()
-        duplicate_page_id = None
         if res != None: # Duplicate detected
             duplicate_page_id = res[0]
-            print("Found a duplicate!")
-
-        # Get HTTP status code
-        try:
-            response = requests.head(url, allow_redirects=True, headers={"User-Agent": USER_AGENT})
-            http_status_code = response.status_code
-        except Exception as e:
-            print(f"[{thread_id}] Error getting URL HEAD!")
-            print(e)
-            http_status_code = None
-
-        # Update page in DB
-        if duplicate_page_id == None:
-            cur.execute("UPDATE crawler.page " +
-                "SET site_id = %s, page_type_code = %s, html_content = %s, " +
-                "html_hash = %s, http_status_code = %s, accessed_time = now() " +
-                "WHERE id = %s", (site_id, page_type_code, html, html_hash, http_status_code, page_id))
-        else:
             cur.execute("UPDATE crawler.page " +
                 "SET site_id = %s, page_type_code = 'DUPLICATE', html_content = NULL, " +
                 "html_hash = NULL, http_status_code = %s, accessed_time = now() " +
@@ -247,17 +302,18 @@ def crawl(thread_id, conn):
             cur.execute("INSERT INTO crawler.link(from_page, to_page) VALUES (%s, %s)", (page_id, duplicate_page_id))
             continue
 
+        # Update page in DB
+        cur.execute("UPDATE crawler.page " +
+            "SET site_id = %s, page_type_code = 'HTML', html_content = %s, " +
+            "html_hash = %s, http_status_code = %s, accessed_time = now() " +
+            "WHERE id = %s", (site_id, html, html_hash, http_status_code, page_id))
+            
         # Find all href links
         elems = driver.find_elements_by_xpath("//*[@href]")
         for elem in elems:
             href = elem.get_attribute("href")
             if href != None:
-                href = urllib.parse.urljoin(url, href)
-                href_norm = normalize_url(href)
-                if href_norm.startswith("mailto:") or href_norm.startswith("tel:"):
-                    f_info.write(href_norm + "\n")
-                    continue
-                frontier_append(cur, href_norm, page_id, robots)
+                process_link(cur, page_id, page_url, robots, href, f_info, f_link, f_debug)
 
         # Find all onclick links
         # document.location, self.location, window.location, location.href
@@ -272,40 +328,84 @@ def crawl(thread_id, conn):
                     result = re.search("(\".*\")|('.*')|(`.*`)", match[0])
                     if result != None:
                         onclick_url = result.group()[1:-1]
-                        onclick_url = urllib.parse.urljoin(url, onclick_url)
-                        onclick_url_norm = normalize_url(onclick_url)
+                        f_link.write(onclick_url + "\n")
+                        process_link(cur, page_id, page_url, robots, onclick_url, f_info, f_link, f_debug)
 
-                        f_link.write(onclick_url_norm + "\n")
-
-                        frontier_append(cur, onclick_url_norm, page_id, robots)
                 f_link.write("\n\n")
 
+        # Find all images
+        elems = driver.find_elements_by_xpath("//img[@src]")
+        for elem in elems:
+            img_src = elem.get_attribute("src")
+            if img_src != None:
+                # Ignore base64 images
+                if (img_src.startswith("data:")):
+                    continue
 
-        # Finding value of src
-        soup = BSHTML(html, features="html.parser") 
-        images = soup.findAll('img')
-        image_id = None
-        try:
-            for image in images:
-                src= image['src'] 
-                iname= Path(src).name
-                if  src.endswith(".jpg") ==True:
-                    itype="image/jpg"                 
-                elif src.endswith(".png")==True:
-                    itype="png"                 
-                elif src.endswith(".svg") ==True:
-                    itype="svg"                   
-                elif src.endswith(".gif")== True:
-                    itype="gif"
-               
-                idata = requests.get(urllib.parse.urljoin(url,src))
-                cur.execute("INSERT INTO crawler.image(page_id, filename, content_type,data,accessed_time) VALUES (%s, %s, %s, %s,now()) ", (page_id,iname,idata.headers["Content-Type"],idata.content))
-        except:
-            pass
+                # Get image name
+                img_path = urllib.parse.urlparse(img_src).path
+                # https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img
+                img_exts = [".jpg", ".jpeg", ".png", 
+                    ".svg", ".gif", ".webp", ".apng", ".avif",
+                    ".bmp", ".ico", ".cur", ".tif", ".tiff"]
+                img_name = None
+                img_ext = None
+                for img_ext in img_exts:
+                    if img_path.lower().endswith(img_ext):
+                        img_name = os.path.basename(img_path)
+                        break
+                if img_name == None:
+                    img_name = os.path.basename(img_path)
+                    if img_name == "":
+                        print(f"[IMG NAME ERROR] {img_src}")
+                        f_debug.write(f"[IMG NAME ERROR] {img_src}\n")
+                        img_name = None
+
+                # Get image content type
+                img_url = urllib.parse.urljoin(page_url, img_src)
+                img_content_type = None
+                if img_url in driver_requests: # img_src
+                    # Check Selenium request
+                    response = driver_requests[img_url]
+                    if response and response.status_code == 200 and "Content-Type" in response.headers:
+                        img_content_type = response.headers["Content-Type"]
+                else:
+                    # Manually send request
+                    try:
+                        response = requests.head(img_url, allow_redirects=True, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+                        if response.status_code == 200 and "Content-Type" in response.headers:
+                            img_content_type = response.headers["Content-Type"]
+                    except requests.exceptions.SSLError:
+                        f_debug.write(f"[IMG HEAD SSL] SSL exception on src: {img_url}\n")
+                    except requests.exceptions.Timeout:
+                        f_debug.write(f"[IMG HEAD TIMEOUT] Timeout exception on src: {img_url}\n")
+                    except Exception as e:
+                        print(f"[IMG HEAD UNKNOWN] Unknown exception on src: {img_url}\n\tOn page: {page_url}\n\t{e}")
+                        f_debug.write(f"[IMG HEAD UNKNOWN] Unknown exception on src: {img_url}\n\t{e}\n")
+                # If requests failed, get content type from filename
+                if img_content_type == None and img_ext != None:
+                    img_content_type = f"image/{img_ext[1:]}"
+                
+
+                if img_name == None or img_content_type == None:
+                    print(f"[IMG META ERROR] {img_src}")
+                    f_debug.write(f"[IMG META ERROR] {img_src}\n")
+
+
+                cur.execute("INSERT INTO crawler.image(page_id, filename, content_type) " +
+                    "VALUES (%s, %s, %s) ", (page_id, img_name, img_ext))
+
+                # if img_name == None:
+                #     print(f"[IMG UNSUPP] {img_src}")
+                #     f_debug.write(f"[IMG UNSUPP] {img_src}\n")
+
+                # else:
+                #     print(f"[IMAGE] {img_ext} : {img_name}")
 
     # Cleanup
     f_info.close()
     f_link.close()
+    f_debug.close()
 
     thread_active[thread_id] = False
     cur.close()

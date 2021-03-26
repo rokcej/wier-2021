@@ -18,6 +18,9 @@ docker run --name postgresql-wier -e POSTGRES_PASSWORD=SecretPassword \
 -e POSTGRES_USER=user -v $PWD/db/pgdata:/var/lib/postgresql/data \
 -v $PWD/db/init-scripts:/docker-entrypoint-initdb.d -p 5432:5432 -d postgres:12.2
 ```
+```
+docker exec -it postgresql-wier psql -U user
+```
 * Run the crawler:
 ```bash
 python crawler/crawler.py
@@ -25,6 +28,8 @@ python crawler/crawler.py
 
 
 ## Questions
+
+* Selenium doesn't detect images (and links?) in `<noscript>`, is this ok?
 
 * How do we find non-image data on a page?
 	* Just check if the site is html or not
@@ -51,6 +56,8 @@ python crawler/crawler.py
 
 ## TODO
 
+
+* Check if link is an image/document
 * (DONE) Get images
 * (DONE) Remove # from URLs?
 * (DONE) Don't send too many requests to the same server too quickly (maybe add a minimum delay) (5 seconds)
@@ -80,3 +87,28 @@ python crawler/crawler.py
 * Pri onclick preveri VSAJ location.href in document.location
 * Filename atribut v headerju za linke ki npr. nimajo koncnice .pdf, ampak je content-type pdf
 * ~50k strani
+
+
+## Technical details
+
+### Document detection
+
+https://www.fu.gov.si/datoteka.php?src=fileadmin/Internet/Drugo/Posebna_podrocja/Turisticni_boni/HU_Priloga_3.docx
+
+### Image detection
+
+Count the images in `<noscript>`? https://podatki.gov.si/
+
+### Other
+```
+[1] Error visiting URL http://eugo.gov.si/en/sectors-by-catergory/
+[5] Error visiting URL https://spot.gov.si/resources/themes/gov/fonts/Republika/ver1.2/republika-bold-webfont.woff2?v=3
+[6] Error visiting URL https://spot.gov.si/resources/themes/gov/fonts/Republika/ver1.2/republika-regular-webfont.woff2?v=3
+[1] Error visiting URL https://spot.gov.si/sl/portal-in-tocke-spot/o-portalu-spot/
+[5] Error visiting URL https://www.stopbirokraciji.gov.si/dobre-prakse
+[4] Error visiting URL https://www.gov.si/de/
+[IMG HEAD ERR] https://urednik-gov.sigov.si/resources/themes/gov/images/RS_gov_si-logo.gif
+        https://urednik-gov.sigov.si/resources/themes/gov/images/RS_gov_si-logo.gif
+[1] Error visiting URL https://eugo.gov.si/
+[2] Error visiting URL https://prostor4.gov.si/imps/srv/slv/catalog.search
+```

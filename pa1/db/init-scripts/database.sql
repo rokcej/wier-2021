@@ -45,7 +45,7 @@ CREATE TABLE crawler.image (
     "filename" varchar(255),
     content_type varchar(50),
     "data" bytea,
-    accessed_time timestamp NOT NULL,
+    accessed_time timestamp,
     PRIMARY KEY (id),
     FOREIGN KEY (page_id) REFERENCES crawler.page(id)
 );
@@ -57,7 +57,7 @@ CREATE TABLE crawler.data_type (
 	PRIMARY KEY (code)
 );
 
-CREATE TABLE crawldb.page_data ( 
+CREATE TABLE crawler.page_data ( 
 	id serial NOT NULL,
 	page_id integer NOT NULL,
 	data_type_code varchar(20),
@@ -71,7 +71,7 @@ INSERT INTO crawler.page_type VALUES
 	('HTML'),
 	('BINARY'),
 	('DUPLICATE'),
-    ('UNAVAILABLE')
+    ('UNAVAILABLE'),
 	('FRONTIER'),
     ('PROCESSING');
 
