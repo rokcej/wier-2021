@@ -5,8 +5,10 @@
 * Install Python >= 3.8 and the following packages:
 ```bash
 pip install selenium
+pip install selenium-wire
 pip install url-normalize
 pip install psycopg2
+pip install reppy
 ```
 * Download geckodriver (Firefox WebDriver) and add it to `PATH`
 ```bash

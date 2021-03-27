@@ -1,6 +1,6 @@
 from selenium import webdriver
 from seleniumwire import webdriver as wirewebdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, NoAlertPresentException
 from reppy.robots import Robots
 import concurrent.futures
 import threading
@@ -183,6 +183,9 @@ def crawl(thread_id, conn):
     # Create DB connection cursor
     cur = conn.cursor()
 
+    # Save most recent page_url for debugging
+    page_url = None
+
     # Wrap main loop in try/catch block for exception handling
     try:
 
@@ -226,6 +229,13 @@ def crawl(thread_id, conn):
                     try:
                         robots = Robots.fetch(robots_url, headers={"User-Agent": USER_AGENT})
                         robots_agent = robots.agent(USER_AGENT)
+                        # Logging robots.txt
+                        f = open("robots.log", "a")
+                        if robots.sitemaps:
+                            f.write(f"[SITEMAP] {robots.sitemaps} on {domain}\n")
+                        if robots_agent.delay != None:
+                            f.write(f"[CRAWL DELAY] {robots_agent.delay} on domain {domain}\n")
+                        f.close()
                     except: # Error fetching robots.txt
                         pass
                     robots_cache[robots_url] = (robots, robots_agent)
@@ -241,9 +251,6 @@ def crawl(thread_id, conn):
                 sitemap_content = None
                 if robots != None and robots.sitemaps != None: # Check sitemaps in robots.txt
                     for sitemap_url in robots.sitemaps:
-                        f = open("robots.log", "a")
-                        f.write(f"[SITEMAP] {sitemap_url} on {domain}\n")
-                        f.close()
                         sitemap_content = curl(sitemap_url)
                         if sitemap_content != None:
                             break
@@ -272,9 +279,6 @@ def crawl(thread_id, conn):
             crawl_delay = CRAWL_DELAY
             if robots_agent != None and robots_agent.delay != None:
                 crawl_delay = robots_agent.delay
-                f = open("robots.log", "a")
-                f.write(f"[CRAWL DELAY] {crawl_delay} on domain {domain}\n")
-                f.close()
             with history_lock:
                 if domain in history_cache:
                     last_time = history_cache[domain]
@@ -292,14 +296,17 @@ def crawl(thread_id, conn):
                     history_cache[domain] = time.time()
 
 
-            # Get HTTP header code
+            # Get HTTP header
             http_status_code = None
             page_content_type = None
+            page_content_disposition = None
             try:
                 response = requests.head(page_url, allow_redirects=True, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
                 http_status_code = response.status_code
                 if "Content-Type" in response.headers:
-                    page_content_type = response.headers['Content-Type']
+                    page_content_type = response.headers["Content-Type"]
+                if "Content-Disposition" in response.headers:
+                    page_content_disposition = response.headers["Content-Disposition"]
             except requests.exceptions.SSLError:
                 pass
             except requests.exceptions.Timeout:
@@ -310,7 +317,8 @@ def crawl(thread_id, conn):
                 print(f"[HEAD UNKNOWN] Error getting URL HEAD: {page_url}\n\t{e}")
                 f_debug.write(f"[HEAD UNKNOWN] Error getting URL HEAD: {page_url}\n\t{e}\n")
             
-            if page_content_type != None and not page_content_type.startswith("text/"):
+            if page_content_type != None and not page_content_type.startswith("text/") or \
+               page_content_disposition != None and not page_content_disposition.startswith("inline"):
                 cur.execute("UPDATE crawler.page " +
                     "SET site_id = %s, page_type_code = 'BINARY', " +
                     "http_status_code = %s, accessed_time = now() " +
@@ -318,7 +326,7 @@ def crawl(thread_id, conn):
                 continue
 
             
-            # Get html
+            # Get HTTP body
             try:
                 driver.get(page_url)
                 time.sleep(SELENIUM_WAIT)
@@ -340,6 +348,14 @@ def crawl(thread_id, conn):
                     "html_hash = NULL, http_status_code = NULL, accessed_time = now() " +
                     "WHERE id = %s", (site_id, page_id))
                 continue
+            # Close alert if present
+            try:
+                alert = driver.switch_to.alert
+                alert.accept()
+                f_debug.write(f"[ALERT PRESENT] On URL: {page_url}\n\tException: {e}\n")
+            except NoAlertPresentException as e:
+                pass
+            # Get HTML source
             html = driver.page_source
             driver_requests = {}
             for request in driver.requests:
@@ -371,15 +387,23 @@ def crawl(thread_id, conn):
             # <area> link example - https://www.stopbirokraciji.gov.si/
             elems = driver.find_elements_by_xpath("//a[@href] | //area[@href]") # "//body//*[@href]"
             for elem in elems:
-                href = elem.get_attribute("href")
-                if href != None:
-                    process_link(cur, page_id, page_url, href, f_info, f_link, f_debug)
+                try:
+                    href = elem.get_attribute("href")
+                    if href != None:
+                        process_link(cur, page_id, page_url, href, f_info, f_link, f_debug)
+                except StaleElementReferenceException as e:
+                    f_debug.write(f"[STALE ELEMENT] On URL: {page_url}\n\tException: {e}\n")
+                    continue
             # Check if any non-<a> tags contain href for debugging purposes
             elems = driver.find_elements_by_xpath("//body//*[@href]")
             for elem in elems:
-                href = elem.get_attribute("href")
-                if elem.tag_name != "a" and elem.tag_name != "area" and href != None and not href.startswith("#") and not href.startswith("javascript:"):
-                    f_debug.write(f"[HREF TAG] <{elem.tag_name}>, href='{href}' on URL {page_url}\n")
+                try:
+                    href = elem.get_attribute("href")
+                    if elem.tag_name != "a" and elem.tag_name != "area" and href != None and not href.startswith("#") and not href.startswith("javascript:"):
+                        f_debug.write(f"[HREF TAG] <{elem.tag_name}>, href='{href}' on URL {page_url}\n")
+                except StaleElementReferenceException as e:
+                    f_debug.write(f"[STALE ELEMENT] On URL: {page_url}\n\tException: {e}\n")
+                    continue
 
 
             # Find all onclick links
@@ -387,7 +411,7 @@ def crawl(thread_id, conn):
             elems = driver.find_elements_by_xpath("//*[@onclick]")
             for elem in elems:
                 onclick = elem.get_attribute("onclick")
-                if onclick != None:
+                if onclick != None and onclick.strip() != "":
                     f_link.write(onclick + "\n--------\n")
                     # matches = re.findall(r"((document\.location)|(location\.href)|(self\.location)|(window\.location))(.|\n)*?(;|$)", onclick)
                     matches = re.findall(r"(((document|window|self)\.location|location\.href)[^;]*)", onclick)
@@ -406,15 +430,22 @@ def crawl(thread_id, conn):
             for elem in elems:
                 img_src = elem.get_attribute("src")
                 if img_src != None:
+                    # Parse src
+                    img_src_parsed = urllib.parse.urlparse(img_src)
+                    img_path = img_src_parsed.path
+                    img_query = img_src_parsed.query
+
                     # Ignore empty src
                     if img_src.strip() == "":
                         continue
                     # Ignore base64 images
                     if img_src.startswith("data:"):
                         continue
+                    # Ignore src="#"
+                    if img_path == "/" and img_query == "" and img_src.endswith("#"):
+                        continue
 
                     # Get image name
-                    img_path = urllib.parse.urlparse(img_src).path
                     # https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img
                     img_exts = [".jpg", ".jpeg", ".png", 
                         ".svg", ".gif", ".webp", ".apng", ".avif",
@@ -455,17 +486,22 @@ def crawl(thread_id, conn):
                             pass
                         except Exception as e:
                             print(f"[IMG HEAD UNKNOWN] Unknown exception on src: {img_url}\n\tOn page: {page_url}\n\t{e}")
-                            f_debug.write(f"[IMG HEAD UNKNOWN] Unknown exception on src: {img_url}\n\t{e}\n")
+                            f_debug.write(f"[IMG HEAD UNKNOWN] Unknown exception on src: {img_url}\n\t{e}\n")        
+                    # Check if file is an image
+                    if img_content_type != None:
+                        if not img_content_type.startswith("image/"):
+                            f_debug.write(f"[IMG CONTENT TYPE] On src: {img_url}\n\tOn url: {page_url}\n")
+                            continue
                     # If requests failed, get content type from filename
                     if img_content_type == None and img_ext != None:
-                        img_content_type = f"image/{img_ext[1:]}"
-                    
+                        img_content_type = f"image/{img_ext[1:]}"                    
 
+                    # Error check
                     if img_name == None or img_content_type == None:
                         print(f"[IMG META ERROR] src {img_src} on URL {page_url}")
                         f_debug.write(f"[IMG META ERROR] src {img_src} on URL {page_url}\n")
 
-
+                    # Save image metadata to DB
                     cur.execute("INSERT INTO crawler.image(page_id, filename, content_type) " +
                         "VALUES (%s, %s, %s) ", (page_id, img_name, img_content_type))
 
@@ -475,7 +511,8 @@ def crawl(thread_id, conn):
 
     except Exception as e:
         # Print exception
-        print(f"[{thread_id}] [UNHANDLED EXCEPTION] {e}")
+        print(f"[{thread_id}] [UNHANDLED EXCEPTION] on URL: {page_url}\n\t{e}")
+        f_debug.write(f"[{thread_id}] [UNHANDLED EXCEPTION] on URL: {page_url}\n\t{e}\n")
 
     # Cleanup
     f_info.close()
