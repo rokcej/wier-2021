@@ -354,8 +354,8 @@ def crawl(thread_id, conn):
             # Close alert if present
             try:
                 alert = driver.switch_to.alert
-                alert.accept()
-                f_debug.write(f"[ALERT PRESENT] On URL: {page_url}\n\tException: {e}\n")
+                alert.dismiss() # alert.accept()
+                f_debug.write(f"[ALERT PRESENT] On URL: {page_url}\n")
             except NoAlertPresentException as e:
                 pass
             # Get HTML source
