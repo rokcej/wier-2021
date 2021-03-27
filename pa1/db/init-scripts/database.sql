@@ -102,4 +102,5 @@ INSERT INTO crawler.data_type VALUES
     ('XLSX'),
     ('XLSM'),
     ('ZIP'),
-    ('RAR');
+    ('RAR'),
+    ('CSV');

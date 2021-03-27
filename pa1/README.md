@@ -65,20 +65,21 @@ SELECT tel FROM crawler.tel;
 
 ## TODO
 
-* Robots http/https test
-* Check if link is an image/document
+* Add csv
+* (DONE) Robots http/https test
+* (DONE) Check if link is an image/document
 * (DONE) Get images
 * (DONE) Remove # from URLs?
 * (DONE) Don't send too many requests to the same server too quickly (maybe add a minimum delay) (5 seconds)
 * (DONE) Multiple threads
-* Collect emails and telephone numbers (for educational purposes only!)
+* (DONE) Collect emails and telephone numbers (for educational purposes only!)
 * (DONE) Add link even if site is already in the DB
 * (DONE) Selenium timeout when site doesn't load???
 * (DONE) Crawl-delay
 * (DONE) Add link to existing URLs
 * (DONE) Get links from onclick events
 * Add DB to repository
-* Interrupt handler
+* (DONE) Interrupt handler
 
 ## Bugs
 

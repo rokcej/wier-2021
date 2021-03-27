@@ -34,8 +34,8 @@ SEED_URLS = [
 NUM_THREADS = 4
 CRAWL_DELAY = 5
 SELENIUM_WAIT = 5 # Selenium minimum wait time
-SELENIUM_TIMEOUT = 15 # Selenium maximum load time
-REQUEST_TIMEOUT = 5 # Timeout for manual requests
+SELENIUM_TIMEOUT = 16 # Selenium maximum load time
+REQUEST_TIMEOUT = 8 # Timeout for manual requests
 
 
 # Multi-threading
@@ -115,11 +115,16 @@ def process_link(cur, page_id, page_url, href, f_info, f_link, f_debug):
 
     # Check if link is mailto: or tel:
     if href.startswith("mailto:"):
-        email = href[7:].split("?")[0]
-        f_info.write(f"[EMAIL] {href}\n\t{email}\n")
-        cur.execute("SELECT * FROM crawler.email WHERE email = %s", (email,))
-        if cur.fetchone() == None:
-            cur.execute("INSERT INTO crawler.email(email, page_id) VALUES (%s, %s)", (email, page_id))
+        f_info.write(f"[EMAIL] {href}\n")
+        text = href[7:].replace("%20", " ").strip()
+        elements = text.split(" ")
+        for el in elements:
+            email = el.split("?")[0]
+            if email:
+                f_info.write(f"\t{email}\n")
+                cur.execute("SELECT * FROM crawler.email WHERE email = %s", (email,))
+                if cur.fetchone() == None:
+                    cur.execute("INSERT INTO crawler.email(email, page_id) VALUES (%s, %s)", (email, page_id))
         return
     elif href.startswith("tel:"):
         tel = href[4:]
@@ -139,7 +144,7 @@ def process_link(cur, page_id, page_url, href, f_info, f_link, f_debug):
     href_query = href_parsed.query
     queries = urllib.parse.parse_qs(href_query)
     # Check if link is a document
-    data_exts = { ".pdf": "PDF", ".zip": "ZIP", ".rar": "RAR",
+    data_exts = { ".pdf": "PDF", ".zip": "ZIP", ".rar": "RAR", ".csv": "CSV",
         ".doc": "DOC", ".docx": "DOCX", ".docm": "DOCM",
         ".ppt": "PPT", ".pptx": "PPTX", ".pptm": "PPTM",
         ".xls": "XLS", ".xlsx": "XLSX", ".xlsm": "XLSM" }
