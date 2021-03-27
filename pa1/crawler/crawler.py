@@ -25,11 +25,6 @@ SEED_URLS = [
     "http://evem.gov.si",
     "http://e-uprava.gov.si",
     "http://e-prostor.gov.si",
-
-    # "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacije_ETRS89/Aplikacije/ETRS89-SI.zip",
-    # "https://egp.gu.gov.si/egp/",
-    # "https://www.e-prostor.gov.si/fileadmin/DPKS/Transformacija_v_novi_KS/Aplikacije/3tra.zip",
-    # "https://www.umar.gov.si/fileadmin/user_upload/publikacije/kratke_analize/Strategija_dolgozive_druzbe/Strategija_dolgozive_druzbe.pdf"
 ]
 NUM_THREADS = 4
 CRAWL_DELAY = 5
@@ -160,8 +155,8 @@ def process_link(cur, page_id, page_url, href, f_info, f_link, f_debug):
     # Error check
     for data_ext in data_exts.keys():
         if href.lower().find(data_ext) >= 0:
-            print(f"[DOC ERROR] {data_ext}: {href}")
-            f_debug.write(f"[DOC ERROR] {data_ext}: {href}\n")
+            # print(f"[DOC ERROR] {data_ext}: {href}\n\tOn URL: {page_url}")
+            f_debug.write(f"[DOC ERROR] {data_ext}: {href}\n\tOn URL: {page_url}\n")
 
     # Add link to frontier
     href_abs = urllib.parse.urljoin(page_url, href)
@@ -181,7 +176,9 @@ def crawl(thread_id, conn):
 
     # Create Selenium webdriver and set User-Agent
     profile = webdriver.FirefoxProfile()
-    profile.set_preference("general.useragent.override", USER_AGENT)
+    profile.set_preference("general.useragent.override", USER_AGENT) # Set User-Agent
+    profile.set_preference("devtools.jsonview.enabled", False) # Disable JSON viewer
+    profile.set_preference("dom.enable_window_print", False) # Disable window.print()
     driver = wirewebdriver.Firefox(profile)
     driver.set_page_load_timeout(SELENIUM_TIMEOUT)
 
@@ -322,6 +319,7 @@ def crawl(thread_id, conn):
                 print(f"[HEAD UNKNOWN] Error getting URL HEAD: {page_url}\n\t{e}")
                 f_debug.write(f"[HEAD UNKNOWN] Error getting URL HEAD: {page_url}\n\t{e}\n")
             
+            # Check if page is a binary file
             if page_content_type != None and not page_content_type.startswith("text/") or \
                page_content_disposition != None and not page_content_disposition.startswith("inline"):
                 cur.execute("UPDATE crawler.page " +
