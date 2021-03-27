@@ -86,6 +86,7 @@ INSERT INTO crawler.page_type VALUES
 	('BINARY'),
 	('DUPLICATE'),
     ('UNAVAILABLE'),
+    ('DISALLOWED'),
 	('FRONTIER'),
     ('PROCESSING');
 
