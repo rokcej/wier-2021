@@ -65,7 +65,7 @@ SELECT tel FROM crawler.tel;
 
 ## TODO
 
-* Add csv
+* (DONE) Add csv
 * (DONE) Robots http/https test
 * (DONE) Check if link is an image/document
 * (DONE) Get images

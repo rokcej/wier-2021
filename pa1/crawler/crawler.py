@@ -160,8 +160,14 @@ def process_link(cur, page_id, page_url, href, f_info, f_link, f_debug):
 
     # Add link to frontier
     href_abs = urllib.parse.urljoin(page_url, href)
-    href_norm = normalize_url(href_abs)
-    frontier_append(cur, href_norm, page_id)
+    try:
+        href_norm = normalize_url(href_abs)
+        frontier_append(cur, href_norm, page_id)
+    except UnicodeError:
+        print(f"[UNICODE ERROR] Can't normalize URL {href_abs}")
+        f = open("./unsupported_url.log", "a")
+        f.write(f"[UNICODE ERROR] Can't normalize URL {href_abs}\n")
+        f.close()
 
 
 def crawl(thread_id, conn):
