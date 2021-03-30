@@ -2,6 +2,7 @@ from selenium import webdriver
 from seleniumwire import webdriver as wirewebdriver
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, NoAlertPresentException
 from reppy.robots import Robots
+from datetime import datetime
 import concurrent.futures
 import threading
 import url_normalize
@@ -26,11 +27,11 @@ SEED_URLS = [
     "http://e-uprava.gov.si",
     "http://e-prostor.gov.si",
 ]
-NUM_THREADS = 4
+NUM_THREADS = 8
 CRAWL_DELAY = 5
 SELENIUM_WAIT = 5 # Selenium minimum wait time
-SELENIUM_TIMEOUT = 16 # Selenium maximum load time
-REQUEST_TIMEOUT = 8 # Timeout for manual requests
+SELENIUM_TIMEOUT = 10 # Selenium maximum load time
+REQUEST_TIMEOUT = 5 # Timeout for manual requests
 
 
 # Multi-threading
@@ -340,8 +341,9 @@ def crawl(thread_id, conn):
                 driver.get(page_url)
                 time.sleep(SELENIUM_WAIT)
             except TimeoutException:
-                print(f"[GET TIMEOUT] Timeout on URL: {page_url}\n")
-                f_debug.write(f"[GET TIMEOUT] Timeout on URL: {page_url}\n\n")
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                print(f"[GET TIMEOUT] [{timestamp}] Timeout on URL: {page_url}\n")
+                f_debug.write(f"[GET TIMEOUT] [{timestamp}] Timeout on URL: {page_url}\n\n")
                 with frontier_lock:
                     cur.execute("UPDATE crawler.page " +
                     "SET site_id = %s, page_type_code = 'UNAVAILABLE', html_content = NULL, " +
