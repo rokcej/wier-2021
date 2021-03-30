@@ -10,6 +10,7 @@
 * `SELENIUM_TIMEOUT` - Maximum waiting time when loading pages with Selenium
 * `REQUEST_TIMEOUT` - Maximum waiting time when manually sending GET and HEAD requests
 
+
 ## Setup
 
 * Install Python >= 3.8 and the following packages:
@@ -93,7 +94,6 @@ TIFF: 87
 
 Total: 304046
 Avg images per page: 11.36
-
 
 ### Other
 Telephone numbers: 1794
