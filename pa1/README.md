@@ -2,8 +2,6 @@
 
 ## Parameters
 
-# Parameters
-
 * `USER_AGENT` - The name of the crawler
 * `SEED_URLS` - List of URLs that are initially added to the frontier
 * `NUM_THREADS` - Number of parallel workers to use
