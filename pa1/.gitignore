@@ -1,2 +1,3 @@
-databaseb/pgdata
+crawler/*.log
+database/pgdata
 geckodriver.log
