@@ -9,3 +9,9 @@ def processRtvslo(html_content):
 	# TODO: Process page using regex
 	pass
 
+
+# Extract data from manazara.si
+def processManazara(html_content):
+	# TODO: Process page using regex
+	pass
+

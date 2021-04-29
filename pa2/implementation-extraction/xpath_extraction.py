@@ -78,3 +78,47 @@ def processRtvslo(html_content):
 	print(json.dumps(record, indent=4))
 	print()
 
+
+# Extract data from manazara.si
+def processManazara(html_content):
+	print("##########################")
+	print("# Processing manazara.si #")
+	print("##########################")
+
+	tree = html.fromstring(html_content)
+
+	category = tree.xpath("/html/body/div/div/div[4]/div[2]/div/div/div/ul/li/strong/text()")[0]
+
+	# Common denominator for records
+	record_xpath = "//div[@class='category-products']/ul[contains(@class, 'columns4')]/li[contains(@class, 'item')]"
+	num_records = len(tree.xpath(record_xpath))
+
+	page = {}
+	page["Category"] = category
+	records = []
+	for i in range(num_records):
+		# Common denominator for data items
+		item_xpath = record_xpath + f"[{i+1}]" + "/div[@class='item-area']/div[@class='details-area']"
+
+		record = {}
+		record["Name"] = tree.xpath(item_xpath + "/h2[@class='product-name']/a/text()")[0]
+		record["Sizes"] = tree.xpath(item_xpath + "/div[@class='items-size-wrapper']/span[@class='size']/text()")
+
+		price = tree.xpath(item_xpath + "/div[@class='price-box']/span[@class='regular-price']/span[@class='price']/text()")
+		old_price = None
+		if len(price) > 0: # Regular price
+			price = price[0].strip()
+		else: # Special price & old price
+			price = tree.xpath(item_xpath + "/div[@class='price-box']/p[@class='special-price']/span[@class='price']/text()")[0].strip()
+			old_price = tree.xpath(item_xpath + "/div[@class='price-box']/p[@class='old-price']/span[@class='price']/text()")[0].strip()
+		record["Price"] = price
+		record["OldPrice"] = old_price
+
+		record["Labels"] = tree.xpath(record_xpath + f"[{i+1}]" + "/div[@class='item-area']/div[@class='product-image-area']/div[@class='product-label']/span/text()")
+
+		records.append(record)
+	page["Records"] = records
+
+	print(json.dumps(page, indent=4))
+	print()
+
