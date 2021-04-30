@@ -104,13 +104,20 @@ def processManazara(html_content):
 		record["Name"] = tree.xpath(item_xpath + "/h2[@class='product-name']/a/text()")[0]
 		record["Sizes"] = tree.xpath(item_xpath + "/div[@class='items-size-wrapper']/span[@class='size']/text()")
 
-		price = tree.xpath(item_xpath + "/div[@class='price-box']/span[@class='regular-price']/span[@class='price']/text()")
-		old_price = None
-		if len(price) > 0: # Regular price
-			price = price[0].strip()
-		else: # Special price & old price
-			price = tree.xpath(item_xpath + "/div[@class='price-box']/p[@class='special-price']/span[@class='price']/text()")[0].strip()
-			old_price = tree.xpath(item_xpath + "/div[@class='price-box']/p[@class='old-price']/span[@class='price']/text()")[0].strip()
+		price = tree.xpath(item_xpath + "/div[@class='price-box']/span[@class='regular-price']/span[@class='price']/text() | " +
+			item_xpath + "/div[@class='price-box']/p[@class='special-price']/span[@class='price']/text()")[0].strip()
+		old_price = tree.xpath(item_xpath + "/div[@class='price-box']/p[@class='old-price']/span[@class='price']/text()")
+		if old_price:
+			old_price = old_price[0].strip()
+		else:
+			old_price = None
+		
+		# old_price = None
+		# if len(price) > 0: # Regular price
+		# 	price = price[0].strip()
+		# else: # Special price & old price
+		# 	price = tree.xpath(item_xpath + "/div[@class='price-box']/p[@class='special-price']/span[@class='price']/text()")[0].strip()
+		# 	old_price = tree.xpath(item_xpath + "/div[@class='price-box']/p[@class='old-price']/span[@class='price']/text()")[0].strip()
 		record["Price"] = price
 		record["OldPrice"] = old_price
 
