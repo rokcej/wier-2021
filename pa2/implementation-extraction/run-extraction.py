@@ -2,6 +2,7 @@ import sys
 
 import regex_extraction
 import xpath_extraction
+import roadrunner_extraction
 
 if __name__ == "__main__":
 	# Get parameter
@@ -44,8 +45,12 @@ if __name__ == "__main__":
 		xpath_extraction.processManazara(html_manazara[0])
 		xpath_extraction.processManazara(html_manazara[1])
 	elif parameter == 'C': # RoadRunner
-		# TODO
-		pass
+		print("[Overstock.com wrapper]\n")
+		roadrunner_extraction.match(html_overstock[0], html_overstock[1])
+		print("[Rtvslo.si wrapper]\n")
+		roadrunner_extraction.match(html_rtvslo[0], html_rtvslo[1])
+		print("[Namazara.si wrapper]\n")
+		roadrunner_extraction.match(html_manazara[0], html_manazara[1])
 	else:
 		print(f"[ERROR] Invalid parameter {parameter}")
 		sys.exit(1)

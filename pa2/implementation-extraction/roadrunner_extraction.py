@@ -34,8 +34,44 @@ def _makeTree(bs_node):
 		return None
 
 
+
+def tree2ufre(node, depth=0):
+	padding = depth * " "
+	ufre = ""
+
+	if node.t == "STRING":
+		if node.val == "#TEXT":
+			ufre = padding + node.val + "\n"
+	else:
+		if node.t == "TAG":
+			pre  = f"<{node.val}>\n"
+			post = f"</{node.val}>\n"
+		elif node.t == "OPTIONAL":
+			pre  = "(\n"
+			post = ")?\n"
+		elif node.t == "ITERATOR":
+			pre  = "(\n"
+			post = ")+\n"
+		else:
+			raise Exception("Invalid node type")
+		
+		rec = ""
+		for child in node.c:
+			rec += tree2ufre(child, depth + 1)
+			
+		if rec:
+			ufre = padding + pre + rec + padding + post
+	
+	return ufre
+
+
 def makeTree(html_content):
 	soup = BeautifulSoup(html_content, 'html.parser')
+
+	unwanted_tags = ["br", "hr", "script", "input", "option"]
+	for tag in unwanted_tags:
+		for el in soup.select(tag):
+			el.extract()
 
 	bs_root = soup.body
 	root = _makeTree(bs_root)
@@ -43,10 +79,10 @@ def makeTree(html_content):
 	return root
 
 
-def test(node, depth):
+def printTree(node, depth=0):
 	print(2 * depth * " " + str(node.val))
 	for c in node.c:
-		test(c, depth + 1)
+		printTree(c, depth + 1)
 
 
 def _matchPattern(wrapper_nodes, sample_nodes):
@@ -64,7 +100,7 @@ def _matchPattern(wrapper_nodes, sample_nodes):
 
 
 def _match(wrapper, sample):
-	K = 4 # Maximum number of candidate squares
+	K = 4 # Maximum number of pattern candidates
 
 	if wrapper.t != sample.t:
 		return None
@@ -93,14 +129,14 @@ def _match(wrapper, sample):
 		# Check if optional
 		if wi < len(wrapper.c) and wrapper.c[wi].t == "OPTIONAL":
 			if _matchPattern(wrapper.c[wi].c, sample.c[si : si + len(wrapper.c[wi].c)]) != None:
-				wi += 1
 				si += len(wrapper.c[wi].c)
+				wi += 1
 			else:
 				wi += 1
 			continue
 		if si < len(sample.c) and sample.c[si].t == "OPTIONAL":
 			if _matchPattern(sample.c[si].c, wrapper.c[wi : wi + len(sample.c[si].c)]) != None:
-				wrapper.c[wi : wi + len(sample.c[si].c)] = sample.c[si]
+				wrapper.c[wi : wi + len(sample.c[si].c)] = [sample.c[si]]
 				wi += 1
 				si += 1
 			else:
@@ -109,7 +145,24 @@ def _match(wrapper, sample):
 				si += 1
 			continue
 
-		# TODO: Check if iterator (is this necessary?)
+		# Check if iterator
+		if wi < len(wrapper.c) and wrapper.c[wi].t == "ITERATOR":
+			count = 0
+			while _matchPattern(wrapper.c[wi].c, sample.c[si + count * len(wrapper.c[wi].c) : si + (count + 1) * len(wrapper.c[wi].c)]) != None:
+				count += 1
+			if count >= 1:
+				si += count * len(wrapper.c[wi].c)
+				wi += 1
+				continue
+		if si < len(sample.c) and sample.c[si].t == "ITERATOR":
+			count = 0
+			while _matchPattern(sample.c[si].c, wrapper.c[wi + count * len(sample.c[si].c) : wi + (count + 1) * len(sample.c[si].c)]) != None:
+				count += 1
+			if count >= 1:
+				wrapper.c[wi : wi + count * len(sample.c[si].c)] = [sample.c[si]]
+				wi += 1
+				si += 1
+				continue
 
 		# At this point the nodes are mismatched
 
@@ -213,8 +266,8 @@ def _match(wrapper, sample):
 					si += count_r * len(it.c)
 					continue
 
-		test(wrapper, 0)
-		test(sample, 0)
+		# test(wrapper, 0)
+		# test(sample, 0)
 
 		# Optional discovery
 		## Pattern on the wrapper
@@ -251,7 +304,7 @@ def _match(wrapper, sample):
 			# opt.c = [w.copy() for w in wrapper.c[wi : wi_match]]
 			wrapper.c[wi : wi_match] = [opt]
 			wi += 1
-			print(f"............{len(opt.c)}")
+			# print(f"............{len(opt.c)}")
 			continue
 		elif si_match != None:
 			opt = Node("OPTIONAL", "#OPTIONAL", None)
@@ -260,18 +313,18 @@ def _match(wrapper, sample):
 			wrapper.c.insert(wi, opt)
 			wi += 1
 			si = si_match
-			print(f"............{len(opt.c)}")
+			# print(f"............{len(opt.c)}")
 			continue
 		else:
-			print(">>>>>>>> WARNING - Too many optionals")
+			# print(">>>>>>>> WARNING - Too many optionals")
 
-			a = "OOR"
-			b = "OOR"
-			if wi < len(wrapper.c):
-				a = wrapper.c[wi].val
-			if si < len(sample.c):
-				b = sample.c[si].val
-			print(f"<{a}> vs <{b}>")
+			# a = "OOR"
+			# b = "OOR"
+			# if wi < len(wrapper.c):
+			# 	a = wrapper.c[wi].val
+			# if si < len(sample.c):
+			# 	b = sample.c[si].val
+			# print(f"<{a}> vs <{b}>")
 
 			opt1 = Node("OPTIONAL", "#OPTIONAL", None)
 			opt2 = Node("OPTIONAL", "#OPTIONAL", None)
@@ -286,10 +339,10 @@ def _match(wrapper, sample):
 			
 			wi = len(wrapper.c)
 			si = len(sample.c)
-			print(f"............{len(opt1.c)}, {len(opt2.c)}")
-			test(wrapper, 0)
-			print()
-			print()
+			# print(f"............{len(opt1.c)}, {len(opt2.c)}")
+			# test(wrapper, 0)
+			# print()
+			# print()
 			continue
 
 		print("========= THIS SHOULD BE UNREACHABLE")
@@ -302,11 +355,12 @@ def match(html_content1, html_content2):
 	sample = makeTree(html_content2)
 
 	wrapper = _match(wrapper, sample)
-	test(wrapper, 0)
+	# test(wrapper, 0)
+	print(tree2ufre(wrapper))
 
 
-if __name__ == "__main__":
-	page1 = open("../input-extraction/test/page1_complex.html", "r").read()
-	page2 = open("../input-extraction/test/page2_complex.html", "r").read()
-	match(page1, page2)
+# if __name__ == "__main__":
+# 	page1 = open("../input-extraction/test/page1_complex.html", "r").read()
+# 	page2 = open("../input-extraction/test/page2_complex.html", "r").read()
+# 	match(page1, page2)
 
