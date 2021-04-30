@@ -97,4 +97,83 @@ for j in range(len(SIZES)):
 
 
 	pass
+# Extract data from nepremicnine.py
+def processManazara(html_content):
+	# Import libraries
 
+import re
+import json
+from unidecode import unidecode
+
+# We rather use the locally-cached file as it may have changed online.
+pageContent = open('Urbano-D 149 - Enodružinske hiše _ Montažne hiše NEPREMICNINE.net.html', 'r').read()
+#print(pageContent)
+
+# # TITLE
+regex = r"<div id=\"opis\">[\s\S]*?<!--<h1>(.*?)<\/h1>"
+Title = re.compile(regex)
+match = Title.search(pageContent)
+Title = str(match.group(1))
+# print(Title)
+
+# # SubTitle
+regex = r"<div class=\"kratek\">(.*?)<\/div>"
+SubTitle = re.compile(regex)
+match = SubTitle.search(pageContent)
+SubTitle = str(match.group(1))
+# print(SubTitle)
+
+# # SPECIFIC INFORMATION
+
+regex = r"(<div (class=\"dsc\">)(<strong>)?(.*?)(<\/strong>)?<\/div>(<br>)?)"
+i=0
+Specific={}
+matches = re.finditer(regex, pageContent)
+for match in matches:
+    Specific[i] = unidecode(str(match.group(4))).replace("</strong>", "")
+    # print(Specific[i])
+    i=i+1
+    
+# # GENERAL DESCRIPTION
+regex = r"(<div class=\"opis\">(.*?)[\s\S]*?(?=<\/div>))"
+General = re.compile(regex)
+match = General.search(pageContent)
+General = str(match.group(2)+match.group(1)).replace("<div class=\"opis\">", "")
+General=General.replace("<div>", "")
+General=General.replace("<br>", "")
+General=General.replace("<p>","")
+General=General.replace("</p>","")
+General=General.replace("</strong>","")
+General=General.replace("<strong>","")
+General=General.replace("<ul>","")
+General=General.replace("<li>","")
+General=General.replace("</li>","")
+General=General.replace("</ul>","")
+# print(General)
+
+# # SELLER
+regex = r"(<div class=\"prodajalec\">(<h2>)?(.*?)(<\/h2>)?<\/div>)"
+Seller = re.compile(regex)
+match = Seller.search(pageContent)
+Seller = str(match.group(3))
+# print(Seller)
+
+# # LOCATION
+regex = r"(((<div class=\"naslov\">([\s\S]*?))<\/div>)[\s\S]*?(?=<div class=\"tel\"><\/div>))"
+Location = re.compile(regex)
+match = Location.search(pageContent)
+Location = str(match.group(3).replace("<br>", " "))
+Location= str(Location.replace("<div class=\"naslov\">", ""))
+# print(Location)
+
+dataObject = {
+        "Title" : unidecode(Title),
+        "SubTitle:" : unidecode(SubTitle),
+        "Specific Information": Specific,
+        "General Information": unidecode(General).replace("\n", "").replace("&nbsp;", " ").replace("\t", " "),
+        "Seller": unidecode(Seller),
+        "Location": unidecode(Location).replace("\n","").strip()
+    }
+print("Output object:\n%s" % json.dumps(dataObject, indent = 4))
+
+pass
