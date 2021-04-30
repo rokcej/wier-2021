@@ -7,7 +7,7 @@ import json
 
 
 # We rather use the locally-cached file as it may have changed online.
-pageContent = open('jewelry02.html', 'r').read()
+pageContent = open(html_content, 'r').read()
 Description={}
 LastPrice={}
 Price={}
@@ -92,7 +92,7 @@ import string
 
 
 # We rather use the locally-cached file as it may have changed online.
-pageContent = open('Renaultovi visokoleteči cilji pri prodaji električnih vozil - RTVSLO.si.html', 'r').read()
+pageContent = open(html_content, 'r').read()
 pageContent = BeautifulSoup(pageContent, 'html.parser')
 
 # # TITLE
@@ -173,7 +173,7 @@ def processManazara(html_content):
 import re
 import json
 from unidecode import unidecode
-pageContent = open('Jakne.html' ,encoding="utf8").read()
+pageContent = open(html_content ,encoding="utf8").read()
 #print(pageContent)
 
 # CATEGORY
@@ -262,7 +262,7 @@ import json
 from unidecode import unidecode
 
 # We rather use the locally-cached file as it may have changed online.
-pageContent = open('Urbano-D 149 - Enodružinske hiše _ Montažne hiše NEPREMICNINE.net.html', 'r').read()
+pageContent = open(html_content, 'r').read()
 #print(pageContent)
 
 # # TITLE
