@@ -82,7 +82,87 @@ for j in range(len(LastPrice)):
 
 # Extract data from rtvslo.si
 def processRtvslo(html_content):
-	# TODO: Process page using regex
+	# Import libraries
+
+import re
+import json
+from unidecode import unidecode
+from bs4 import BeautifulSoup
+import string
+
+
+# We rather use the locally-cached file as it may have changed online.
+pageContent = open('Renaultovi visokoleteči cilji pri prodaji električnih vozil - RTVSLO.si.html', 'r').read()
+pageContent = BeautifulSoup(pageContent, 'html.parser')
+
+# # TITLE
+regex = r"<h1>(.*)<\/h1>"
+Title = re.compile(regex)
+match = Title.search(str(pageContent))
+Title=str(match.group(1))
+#print(Title)
+
+
+# # AUTHOR AND PUBLISHED TIME
+regex = r"<div class=\"author-timestamp\">\s*\n?[<strong>]+(.*)<\/strong>\|(.*)"
+Author = re.compile(regex)
+match = Author.search(str(pageContent))
+#print("Author:", match.group(1))
+Author=str(match.group(1))
+#print("PublishedTime",match.group(2))
+PublishedTime=match.group(2)
+
+
+# # SUBTITLE
+regex = r"<div class=\"subtitle\">(.*)<\/div>"
+Subtitle = re.compile(regex)
+match = Subtitle.search(str(pageContent))
+#print("Subtitle:", match.group(1))
+Subtitle=str(match.group(1))
+# # LEAD
+regex = r"<p class=\"lead\">(.*)<\/p>"
+Lead = re.compile(regex)
+match = Lead.search(str(pageContent))
+# print("Lead:", match.group(1))
+Lead=match.group(1)
+
+#DESCRIPTION
+i=1
+Description={}
+regex=r"(<div style=\"position:absolute\; left: -1000px\; top: -1000px\;\"><img (.*?)<p>)*?(<p class=\"Body\">(.*?)<iframe (.*?)<\/p>)?<p>(.*?)(<\/p>)"
+DEscription = re.compile(regex)
+match = DEscription.search(str(pageContent))
+if(str(match.group(4))==None):
+    pass
+else:
+    Description[i]=match.group(4)
+    i=i+1
+matches = re.finditer(regex, str(pageContent))
+for match in matches:
+    Description[i] = str(match.group(6))      
+    i=i+1
+Dummy=""
+j=1
+while(j<len(Description)): 
+    if(Description[j] is None):
+        j=j+1
+        continue
+    Dummy=str(Dummy)+Description[j]
+    j=j+1
+Titl=str(Dummy).split('mesec')
+Description=str((Titl[0]+"mesec").replace("<p>","").replace("</p>","").replace("<strong>","").replace("</strong>","").replace("<p class=\"Body\">","").replace("<br>","").replace("<br/>","").replace("<sub>","").replace("</sub>",""))
+# print(Description)
+dataObject = {
+        "Description" : unidecode(Description),        
+        "Author:" : Author,
+        "PublishedTime": ' '.join(PublishedTime.split()),
+        "Title": Title,
+        "SubTitle": Subtitle,
+        "Lead": unidecode(Lead)
+    }
+print("Output object:\n%s" % json.dumps(dataObject, indent = 4))
+
+
 	pass
 
 
