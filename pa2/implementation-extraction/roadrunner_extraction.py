@@ -94,13 +94,13 @@ def _match(wrapper, sample):
 		if False:
 			pass
 		else:
-			if wi < len(wrapper.c) and si < len(sample.c) and _match(wrapper.c[wi], sample.c[si]) != None:
+			if wi < len(wrapper.c) and si < len(sample.c) and _match(wrapper.c[wi], sample.c[si]) != None: # Matched
 				wi += 1
 				si += 1
 			else: # Mismatched
-				# Iterator
+				# Iterator discovery
 				if wi > 0 and si > 0: # and wrapper.c[wi-1].t == sample.c[si-1].t and wrapper.c[wi-1].val == sample.c[si-1].val:q
-					iter = None
+					it = None
 
 					## Candidates on the wrapper
 					terminal_tag = wrapper.c[wi-1].val
@@ -122,30 +122,30 @@ def _match(wrapper, sample):
 								found_square = False
 								break
 						if found_square:
-							iter = Node("ITERATOR", "#ITERATOR", None)
-							iter.c = matches
+							it = Node("ITERATOR", "#ITERATOR", None)
+							it.c = matches
 							break
 					# Generalize wrapper
-					if iter != None:
+					if it != None:
 						# Left search
-						start = wi - 2 * len(iter.c)
+						start = wi - 2 * len(it.c)
 						count_l = 1
 						while start >= 0:
-							if _matchPattern(iter.c, wrapper.c[start : start + len(iter.c)]) == None:
+							if _matchPattern(it.c, wrapper.c[start : start + len(it.c)]) == None:
 								break
 							count_l += 1
-							start -= len(iter.c)
+							start -= len(it.c)
 						# Right search
-						start = wi + len(iter.c)
+						start = wi + len(it.c)
 						count_r = 0
-						while start + len(iter.c) <= len(wrapper.c):
-							if _matchPattern(iter.c, wrapper.c[start : start + len(iter.c)]) == None:
+						while start + len(it.c) <= len(wrapper.c):
+							if _matchPattern(it.c, wrapper.c[start : start + len(it.c)]) == None:
 								break
 							count_r += 1
-							start += len(iter.c)
+							start += len(it.c)
 						# Update wrapper
-						wrapper.c[wi - count_l * len(iter.c) : wi + (count_r + 1) * len(iter.c)] = [iter]
-						wi += 1 - count_l * len(iter.c)
+						wrapper.c[wi - count_l * len(it.c) : wi + (count_r + 1) * len(it.c)] = [it]
+						wi += 1 - count_l * len(it.c)
 						continue
 								
 
@@ -169,37 +169,91 @@ def _match(wrapper, sample):
 								found_square = False
 								break
 						if found_square:
-							iter = Node("ITERATOR", "#ITERATOR", None)
-							iter.c = matches
+							it = Node("ITERATOR", "#ITERATOR", None)
+							it.c = matches
 							break
 					# Generalize wrapper
-					if iter != None:
+					if it != None:
 						# Left search on the wrapper
-						start = wi - len(iter.c)
+						start = wi - len(it.c)
 						count_l = 0
 						while start >= 0:
-							if _matchPattern(iter.c, wrapper.c[start : start + len(iter.c)]) == None:
+							if _matchPattern(it.c, wrapper.c[start : start + len(it.c)]) == None:
 								break
 							count_l += 1
-							start -= len(iter.c)
+							start -= len(it.c)
 						# Update wrapper
 						if count_l > 0:
 							# Right search on the sample
-							start = wi + len(iter.c)
+							start = wi + len(it.c)
 							count_r = 1
-							while start + len(iter.c) <= len(sample.c):
-								if _matchPattern(iter.c, sample.c[start : start + len(iter.c)]) == None:
+							while start + len(it.c) <= len(sample.c):
+								if _matchPattern(it.c, sample.c[start : start + len(it.c)]) == None:
 									break
 								count_r += 1
-								start += len(iter.c)
+								start += len(it.c)
 
-							wrapper.c[wi - count_l * len(iter.c) : wi] = [iter]
-							wi += 1 - count_l * len(iter.c)
-							si += count_r * len(iter.c)
+							wrapper.c[wi - count_l * len(it.c) : wi] = [it]
+							wi += 1 - count_l * len(it.c)
+							si += count_r * len(it.c)
 							continue
 
-				# Optional
-				# TODO
+
+
+				# Optional discovery
+				## Pattern on the wrapper
+				wi_match = None
+				if si < len(sample.c):
+					sc = sample.c[si]
+					for i in range(wi + 1, min(wi + 1 + K, len(wrapper.c))):
+						wc = wrapper.c[i]
+						if wc.t == sc.t and wc.val == sc.val:
+							wi_match = i
+							break
+
+				## Pattern on the sample
+				si_match = None
+				if wi < len(wrapper.c):
+					wc = wrapper.c[wi]
+					for i in range(si + 1, min(si + 1 + K, len(sample.c))):
+						sc = sample.c[i]
+						if wc.t == sc.t and wc.val == sc.val:
+							si_match = i
+							break
+
+				# Generalize wrapper
+				if wi_match != None and si_match != None:
+					print(">>>>>>>> WARNING - Ambiguous optionals")
+					if wi_match - wi <= si_match - si:
+						si_match = None
+					else:
+						wi_match = None
+
+				if wi_match != None:
+					opt = Node("OPTIONAL", "#OPTIONAL", None)
+					opt.c = wrapper.c[wi : wi_match]
+					wrapper.c[wi : wi_match] = [opt]
+					wi += 1
+					continue
+				elif si_match != None:
+					opt = Node("OPTIONAL", "#OPTIONAL", None)
+					opt.c = sample.c[si : si_match]
+					wrapper.c.insert(wi, opt)
+					wi += 1
+					si = si_match
+					continue
+				else:
+					print(">>>>>>>> WARNING - Too many optionals")
+					opt1 = Node("OPTIONAL", "#OPTIONAL", None)
+					opt2 = Node("OPTIONAL", "#OPTIONAL", None)
+					opt1.c = wrapper.c[wi:]
+					opt2.c = sample.c[si:]
+					wrapper.c[wi:] = [opt1]
+					wrapper.append(opt2)
+					
+					wi = len(wrapper.c)
+					si = len(sample.c)
+					continue
 
 	return wrapper
 
