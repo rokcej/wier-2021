@@ -1,0 +1,2 @@
+(function($){function matchHeight(){$('.products-grid .product-name').matchHeight();$('.products-grid .items-size-wrapper').matchHeight();$('.box-up-sell h2.product-name').matchHeight();$('.box-up-sell .products-grid .price-box').matchHeight();$('.cms-index-index .product-name').matchHeight();}
+$(window).load(function(){matchHeight();$(window).resize(function(){clearTimeout(window.resizedFinished);window.resizedFinished=setTimeout(function(){matchHeight();},500);});});})(jQuery);
