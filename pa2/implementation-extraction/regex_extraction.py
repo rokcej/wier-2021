@@ -1,5 +1,81 @@
 # Extract data from overstock.com
 def processOverstock(html_content):
+	# Import libraries
+
+import re
+import json
+
+
+# We rather use the locally-cached file as it may have changed online.
+pageContent = open('jewelry02.html', 'r').read()
+Description={}
+LastPrice={}
+Price={}
+Saving={}
+SavingPercent={}
+Title={}
+i=0
+
+#TITLE
+i=0
+regex = r"<a href=(\")http:(\/\/)www.overstock.com(\/)cgi-bin(\/)d2.cgi(\?)PAGE=PROFRAME(\&)amp;PROD_ID=(\d{5,7})(\")><b>(.*)</b>"
+matches = re.finditer(regex, pageContent)
+for match in matches:
+    Title[i] = match.group(9)
+    i=i+1
+
+#DESCRIPTION
+i=0
+regex=r"(?:<td valign=\"top\"><span class=\"normal\">)((.*?)[\s\S]*?)<br>(.*?)\"><span class=\"tiny\"><b>(.*)<\/b>"
+matches = re.finditer(regex, pageContent)
+for match in matches:
+    Description[i] = str(match.group(1)+match.group(4)).replace("\n","")
+    i=i+1
+
+#LAST PRICE
+i=0
+regex=r"<tbody><tr><td align=\"right\" nowrap=\"nowrap\"><b>(.*)<\/b><\/td><td align=\"left\" nowrap=\"nowrap\"><s>(\$(\d{1,5})(\,)?(\d{1,5})?\.(\d{1,5}))<\/s><\/td><\/tr>"
+matches = re.finditer(regex, pageContent)
+for match in matches:
+    LastPrice[i] = match.group(2)
+    i=i+1
+
+
+#REGULAR PRICE
+i=0
+regex=r"<tr><td align=\"right\" nowrap=\"nowrap\"><b>Price:<\/b><\/td><td align=\"left\" nowrap=\"nowrap\"><span class=\"bigred\"><b>(\$(\d{1,5})(\,)?(\d{1,5})?\.(\d{1,5}))<\/b><\/span><\/td><\/tr>"
+matches = re.finditer(regex, pageContent)
+for match in matches:
+    Price[i] = match.group(1)
+    i=i+1
+
+#SAVED
+i=0
+regex=r"<tr><td align=\"right\" nowrap=\"nowrap\"><b>You Save:<\/b><\/td><td align=\"left\" nowrap=\"nowrap\"><span class=\"littleorange\">(\$(\d{1,5})(\,)?(\d{1,5})?\.(\d{1,5})) (\()[0-9][0-9](\%)(\))<\/span><\/td><\/tr>"
+matches = re.finditer(regex, pageContent)
+for match in matches:
+    Saving[i] = match.group(1)
+    i=i+1
+
+#SAVED IN PERCENT
+i=0
+regex=r"<tr><td align=\"right\" nowrap=\"nowrap\"><b>You Save:<\/b><\/td><td align=\"left\" nowrap=\"nowrap\"><span class=\"littleorange\">(\$(\d{1,5})(\,)?(\d{1,5})?\.(\d{1,5})) ((\()([0-9][0-9](\%))(\)))<\/span><\/td><\/tr>"
+matches = re.finditer(regex, pageContent)
+for match in matches:
+    SavingPercent[i] = match.group(8)
+    i=i+1
+
+
+for j in range(len(LastPrice)):
+    dataObject = {
+        "Description" : Description[j],
+        "Title:" : Title[j],
+        "LastPrice": LastPrice[j],
+        "Price": Price[j],
+        "Saving": Saving[j],
+        "SavingPercent": SavingPercent[j]
+    }
+    print("Output object:\n%s" % json.dumps(dataObject, indent = 4))
 	
 	pass
 
