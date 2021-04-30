@@ -1,12 +1,16 @@
 # Programming Assignment 2
 
-## Questions
+## Prerequisites
+```bash
+pip install beautifulsoup4
+pip install lxml
+```
 
-* When getting Overstock Content:
-	* Do we include "Click here to purchase"?
-	* Do we remove the \n?
-* When getting RTVSlo PublishedTime, should we transform the date into a universal format?
-* Do we have to structure RTVSlo Content in any way?
-* Is it OK to use absolute XPath, or should we use relative XPath whenever possible?
-* Will our algorithms be tested against pages that were not given to us?
+## Usage
+```bash
+cd input-extraction
+python ./run-extraction.py A
+python ./run-extraction.py B
+python ./run-extraction.py C
+```
 
