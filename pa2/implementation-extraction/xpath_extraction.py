@@ -5,10 +5,6 @@ import re
 
 # Extract data from overstock.com
 def processOverstock(html_content):
-	print("############################")
-	print("# Processing overstock.com #")
-	print("############################")
-
 	tree = html.fromstring(html_content)
 	
 	# 15 and 8 records
@@ -35,16 +31,13 @@ def processOverstock(html_content):
 		record["Content"] = content[i].replace("\n", " ")
 		records.append(record)
 
+	print("Overstock output object:")
 	print(json.dumps(records, indent=4, ensure_ascii=False))
 	print()
 
 
 # Extract data from rtvslo.si
 def processRtvslo(html_content):
-	print("########################")
-	print("# Processing rtvslo.si #")
-	print("########################")
-
 	tree = html.fromstring(html_content)
 
 	# author = tree.xpath("/html/body/div/div[3]/div/div[1]/div[1]/div/text()")
@@ -75,16 +68,13 @@ def processRtvslo(html_content):
 	record["Lead"] = lead
 	record["Content"] = content
 
+	print("Rtvslo output object:")
 	print(json.dumps(record, indent=4, ensure_ascii=False))
 	print()
 
 
 # Extract data from manazara.si
 def processManazara(html_content):
-	print("##########################")
-	print("# Processing manazara.si #")
-	print("##########################")
-
 	tree = html.fromstring(html_content)
 
 	category = tree.xpath("/html/body/div/div/div[4]/div[2]/div/div/div/ul/li/strong/text()")[0]
@@ -126,6 +116,7 @@ def processManazara(html_content):
 		records.append(record)
 	page["Records"] = records
 
+	print("Manazara output object:")
 	print(json.dumps(page, indent=4, ensure_ascii=False))
 	print()
 

@@ -45,11 +45,11 @@ if __name__ == "__main__":
 		xpath_extraction.processManazara(html_manazara[0])
 		xpath_extraction.processManazara(html_manazara[1])
 	elif parameter == 'C': # RoadRunner
-		print("[Overstock.com wrapper]\n")
+		print("Overstock.com output wrapper:\n")
 		roadrunner_extraction.match(html_overstock[0], html_overstock[1])
-		print("[Rtvslo.si wrapper]\n")
+		print("Rtvslo output wrapper:\n")
 		roadrunner_extraction.match(html_rtvslo[0], html_rtvslo[1])
-		print("[Namazara.si wrapper]\n")
+		print("Namazara output wrapper:\n")
 		roadrunner_extraction.match(html_manazara[0], html_manazara[1])
 	else:
 		print(f"[ERROR] Invalid parameter {parameter}")

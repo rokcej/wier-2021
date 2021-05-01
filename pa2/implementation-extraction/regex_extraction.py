@@ -167,8 +167,6 @@ def processRtvslo(html_content):
 def processManazara(html_content):
     re_category = r'<li class="category\d+">\s*<strong>(.*?)</strong>'
     category = re.compile(re_category).search(html_content)
-    print(category.group(1))
-
 
     # Name
     re_name = r'<li class="item">\s*<div class="item-area">(.|\s)*?<div class="details-area">\s*<h2 class="product-name".*>\s*<a .*>(.*?)</a>'
@@ -245,6 +243,7 @@ def processManazara(html_content):
     page["Category"] = category.group(1)
     page["Records"] = records
 
+    print("Manazara output object:")
     print(json.dumps(page, indent=4, ensure_ascii=False))
     print()
 
