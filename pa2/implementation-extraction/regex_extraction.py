@@ -165,83 +165,87 @@ def processRtvslo(html_content):
 
 # Extract data from manazara.si
 def processManazara(html_content):
-    # Does not work
-    return
-
-	# # Import libraries
-    # pageContent = html_content
-    # #print(pageContent)
-
-    # # CATEGORY
-    # regex = r"<li class=\"home\">[\s\S]*?<a (.*?)>(.*?)<\/a>[\s\S]*?<strong>(.*?)<\/strong>"
-    # Category = re.compile(regex)
-    # match = Category.search(pageContent)
-    # CATEGORY=match.group(2)+ "/"+ match.group(3)
-    # # print("Category:", match.group(2)+"/"+match.group(3))
-
-    # #NOT GOOD
-    # # i=0
-    # # Title={}
-    # # regex = r"<h2 class=\"product-name\" (.*) title(.*?)>(.*?)<\/a>[\s\S]*?[\s\S]*?(<p class=\"old-price\">[\s]+?<span class=\"price-label\">(.*?)<\/span>[\s]*<span class=\"price\" (.*?)>[\s]+(.*?)<\/span>)+?[\s\S]*?(<p class=\"special-price\">[\s\S]+?<span class=\"price\" (.*?)>[\s]+(.*?)<\/span>)+?[\s\S]*?(<p class=\"old-price regular-price-old-price-container\"><\/p>[\s]+<span class=\"regular-price\"(.*?)>[\s\S]+?<span class=\"price\">(.*?)<\/span>)+?<div class=\"actions\">"
-    # # matches = re.finditer(regex, pageContent)
-    # # for match in matches:
-    # #     Title[i]=str(match.group(10)) + match.group(13)
-    # #     print(Title[i])
-    # #     i=i+1
+    re_category = r'<li class="category\d+">\s*<strong>(.*?)</strong>'
+    category = re.compile(re_category).search(html_content)
+    print(category.group(1))
 
 
-    # i=0
-    # PRODUCTNAME={}
-    # #  PRODUCT NAME
-    # regex = r"<h2 class=\"product-name\" (.*) title(.*?)>(.*?)<\/a>"
-    # matches = re.finditer(regex, pageContent)
-    # for match in matches:
-    #     PRODUCTNAME[i]=str(match.group(3))
-    #     i=i+1
+    # Name
+    re_name = r'<li class="item">\s*<div class="item-area">(.|\s)*?<div class="details-area">\s*<h2 class="product-name".*>\s*<a .*>(.*?)</a>'
+    matches = re.finditer(re_name, html_content)
+    names = []
+    for match in matches:
+        names.append(match.group(2))
 
-    # # SIZES
-    # SIZES={}
-    # i=0
-    # regex = r"(<span class=\"size\">(.*)<\/span>)+?"
-    # matches = re.finditer(regex, pageContent)
-    # for match in matches:
-    #     SIZES[i] = str(match.group(2)).replace("<span class=\"size\">"," ").replace("</span>", " ")
-    #     # print(SIZES[i])
-    #     i=i+1
+    # Sizes
+    re_size = r'<span class="size">(.+?)</span>'
+    matches = re.finditer(re_size, html_content)
+    size = []
+    for match in matches:
+        size.append(match.group(1))
+    
+    re_size0 = r'<div class="items-size-wrapper".+?>\s*<span class="size">(.+?)</span>.*\s*</div>'
+    matches = re.finditer(re_size0, html_content)
+    size0 = []
+    for match in matches:
+        size0.append(match.group(1))
+
+    sizes = []
+    for i in range(1, len(size0)):
+        f = size.index(size0[i], 1)
+        sizes.append(size[:f])
+        size = size[f:]
+    sizes.append(size)
+
+    # Label
+    re_label = r'<li class="item">(.|\s)*?</a>\s*(<div class="product-label" style="right: 10px;"><span class="sale-product-icon">(.+?)</span>)?'
+    matches = re.finditer(re_label, html_content)
+    labels = []
+    for match in matches:
+        label = match.group(3)
+        if label:
+            labels.append([label])
+        else:
+            labels.append([])
+    
+    # Price
+    re_price = r'<li class="item">(.|\s)*?<span class="price"(.*?)?>\s*(.+?)\s*</span>'
+    matches = re.finditer(re_price, html_content)
+    price = []
+    price_id = []
+    for match in matches:
+        price.append(match.group(3))
+        price_id.append(match.group(2))
+    
+    re_new_price = r'<li class="item">(.|\s)*?<span class="price" id="product-price-\d+">\s*(.+?)\s*</span>'
+    matches = re.finditer(re_new_price, html_content)
+    new_price = []
+    for match in matches:
+        new_price.append(match.group(2))
 
 
-    # # GOOD BUT NOT RELEVANT
-    # # i=0
-    # # OLD={}
-    # # Auth={}
-    # # #  OLD PRICE
-    # # regex = r"<span class=\"price\" id=\"old-price-(.*?)>[\s](.*?)<\/span>[\s\S]+?<div class=\"actions\">"
-    # # matches = re.finditer(regex, pageContent)
-    # # for match in matches:
-    # #     OLD[i]=str(match.group(1))
-    # #     OLD[i]=int(OLD[i][0:(len(OLD[i])-1)])
-    # #     Auth[i]=str(match.group(2))
-    # #     print(Auth[i],OLD[i])
-    # #     i=i+1
-    # # GOOD BUT NOT RELEVANT
-    # # i=0
-    # # Current={}
-    # # Price={}
-    # # #  CURRENT PRICE
-    # # regex = r"<span class=\"price\" id=\"product-price-(.*?)>[\s](.*?)<\/span>[\s\S]+?<div class=\"actions\">"
-    # # matches = re.finditer(regex, pageContent)
-    # # for match in matches:
-    # #     Current[i]=str(match.group(1))
-    # #     Current[i]=int(Title1[i][0:(len(Title1[i])-1)])
-    # #     Price[i]=str(match.group(2))
-    # #     print(Price[i],Title1[i])
-    # #     i=i+1
+    records = []
+    new_price_index = 0
+    for i in range(len(names)):
+        record = {}
+        record["Name"] = names[i]
+        record["Sizes"] = sizes[i]
 
-    # for j in range(min(len(SIZES), len(PRODUCTNAME))):
-    #     dataObject = {
-    #         "Category" : CATEGORY,        
-    #         "Product Name:" : (PRODUCTNAME[j]),
-    #         "Sizes": SIZES[j],
+        if price_id[i].strip() == "":
+            record["Price"] = price[i]
+            record["OldPrice"] = None
+        else:
+            record["Price"] = new_price[new_price_index]
+            record["OldPrice"] = price[i]
+            new_price_index += 1
+        record["Labels"] = labels[i]
+        records.append(record)
+    
+    page = {}
+    page["Category"] = category.group(1)
+    page["Records"] = records
 
-    #     }
-    #     print("Output object:\n%s" % json.dumps(dataObject, indent = 4))
+    print(json.dumps(page, indent=4, ensure_ascii=False))
+    print()
+
+
