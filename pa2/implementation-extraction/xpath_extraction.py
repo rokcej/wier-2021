@@ -35,7 +35,7 @@ def processOverstock(html_content):
 		record["Content"] = content[i].replace("\n", " ")
 		records.append(record)
 
-	print(json.dumps(records, indent=4, ensure_ascii=True))
+	print(json.dumps(records, indent=4, ensure_ascii=False))
 	print()
 
 
@@ -75,7 +75,7 @@ def processRtvslo(html_content):
 	record["Lead"] = lead
 	record["Content"] = content
 
-	print(json.dumps(record, indent=4, ensure_ascii=True))
+	print(json.dumps(record, indent=4, ensure_ascii=False))
 	print()
 
 
@@ -126,6 +126,6 @@ def processManazara(html_content):
 		records.append(record)
 	page["Records"] = records
 
-	print(json.dumps(page, indent=4, ensure_ascii=True))
+	print(json.dumps(page, indent=4, ensure_ascii=False))
 	print()
 
