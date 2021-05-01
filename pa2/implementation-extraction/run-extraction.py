@@ -13,8 +13,8 @@ if __name__ == "__main__":
 
 	# Get html
 	html_overstock = [
-		open("../input-extraction/overstock.com/jewelry01.html", "r").read(),
-		open("../input-extraction/overstock.com/jewelry02.html", "r").read()
+		open("../input-extraction/overstock.com/jewelry01.html", "r", encoding="latin1").read(),
+		open("../input-extraction/overstock.com/jewelry02.html", "r", encoding="latin1").read()
 	]
 	html_rtvslo = [
 		open("../input-extraction/rtvslo.si/Audi A6 50 TDI quattro_ nemir v premijskem razredu - RTVSLO.si.html", "r", encoding="utf8").read(),
