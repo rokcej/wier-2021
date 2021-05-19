@@ -1,6 +1,7 @@
 import sys
 import time
 import sqlite3
+from tqdm import tqdm
 
 import config
 import searching
@@ -9,6 +10,9 @@ import preprocessing
 #####################################
 # Data retrieval using SQLite index #
 #####################################
+
+PRINT_PROGRESS = True
+OUTPUT_FILE = None # Set to None to print to console
 
 
 if __name__ == "__main__":
@@ -32,7 +36,7 @@ if __name__ == "__main__":
 		query_words_format = ", ".join("?" * len(query_words))
 
 		# Find all matches
-		curSelect = cur.execute(f"""
+		cur_select = cur.execute(f"""
 			SELECT p.documentName, SUM(p.frequency) AS freqSum, GROUP_CONCAT(p.indexes)
 			FROM Posting p
 			WHERE
@@ -41,7 +45,7 @@ if __name__ == "__main__":
 			ORDER BY freqSum DESC;
 		""", query_words)
 
-		for row in curSelect:
+		for row in tqdm(cur_select, desc=f"Processing query results", unit="results", disable=not PRINT_PROGRESS):
 			# Extract data from query results
 			document_name = row[0]
 			frequency = row[1]
@@ -64,7 +68,7 @@ if __name__ == "__main__":
 	time_diff = time.process_time() - time_start # Stop timer
 
 	# Print results
-	searching.print_results(query_text, time_diff, search_results)
+	searching.print_results(query_text, time_diff, search_results, OUTPUT_FILE)
 
 	# Close DB connection
 	conn.close()

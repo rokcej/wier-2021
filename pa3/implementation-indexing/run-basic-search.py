@@ -13,6 +13,7 @@ import preprocessing
 #############################################
 
 PRINT_PROGRESS = True
+OUTPUT_FILE = None # Set to None to print to console
 
 
 if __name__ == "__main__":
@@ -68,5 +69,5 @@ if __name__ == "__main__":
 	time_diff = time.process_time() - time_start # Stop timer
 
 	# Print results
-	searching.print_results(query_text, time_diff, search_results)
+	searching.print_results(query_text, time_diff, search_results, OUTPUT_FILE)
 	
