@@ -8,7 +8,12 @@ from tqdm import tqdm
 import config
 import preprocessing
 
+###################################
+# Data preprocessing and indexing #
+###################################
+
 PRINT_PROGRESS = True
+
 
 # Insert word into database
 def index_word(cur, word, index, document_name):
@@ -44,17 +49,20 @@ if __name__ == "__main__":
 		site_path = config.INPUT_PATH + "/" + site
 		padding = (max([len(x) for x in config.INPUT_SITES]) - len(site)) * " " # Add spaces to align progress bars
 		for page in tqdm(os.listdir(site_path), desc=f"Indexing {site}{padding}", unit="pages", disable=not PRINT_PROGRESS):
+			# Only process html files with the same name as site
+			if not (page.startswith(site) and page.endswith(".html")):
+				print(">>>>>>>>>>>>>>>> ERROR <<<<<<<<<<<<<<<<") # For debugging
+				continue
+
 			page_path = site_path + "/" + page
 			with open(page_path, "r", encoding="utf-8") as f:
-				# Read page
-				html = f.read()
-
 				# Extract text from page
+				html = f.read()
 				text = preprocessing.extract_text(html)
 
 				# Process words
-				words = preprocessing.preprocess_text(text)
-				for word, index in words:
+				words, indexes, _ = preprocessing.preprocess_text(text)
+				for word, index in zip(words, indexes):
 					index_word(cur, word, index, site + "/" + page)
 
 				# for word, index in words:

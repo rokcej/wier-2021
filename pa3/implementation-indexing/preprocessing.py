@@ -5,6 +5,9 @@ import nltk
 
 from stopwords import STOPWORDS_SLOVENE
 
+###########################################
+# Common functions for text preprocessing #
+###########################################
 
 HTML_BLACKLIST = [
 	"script",
@@ -32,13 +35,15 @@ PUNCTUATION_MARKS = set([
 # 	return True
 
 # Extract text from page
+# 	html	- page html code
+# returns visible text on the page
 def extract_text(html):
 	soup = bs4.BeautifulSoup(html, "html.parser")
-	# V1
+	# # Version 1
 	for el in soup(HTML_BLACKLIST):
 		el.extract() # Remove element
 	text = soup.get_text()
-	# # V2
+	# # Version 2
 	# texts = soup.find_all(text=True)
 	# texts = filter(text_filter, texts)
 	# text = " ".join(t.strip() for t in texts)
@@ -46,10 +51,13 @@ def extract_text(html):
 	return text
 
 # Convert text into a list of words
+# 	text -	text extracted from a page
+# returns a tuple (list of preprocessed words, indexes of preprocessed words, list of original words)
 def preprocess_text(text):
 	# Split text by whitespace
 	strings = text.split()
 	words = []
+	indexes = []
 	for index, string in enumerate(strings):
 		# Tokenize words
 		tokens = nltk.tokenize.word_tokenize(string)
@@ -67,30 +75,7 @@ def preprocess_text(text):
 				if token.startswith(prefix):
 					token = token[len(prefix):]
 					break
-			words.append((token, index))
+			words.append(token)
+			indexes.append(index)
 	
-	return words
-
-def preprocess_text_old(text):
-	# Tokenize words
-	words = nltk.tokenize.word_tokenize(text)
-	i = 0
-	while i < len(words):	
-		# Convert to lowercase
-		words[i] = words[i].lower()
-		# Remove stopwords and punctuation marks
-		if words[i] in STOPWORDS_SLOVENE or words[i] in PUNCTUATION_MARKS:
-			words.pop(i)
-			continue
-		# Remove dot sequences
-		if (re.match(r"\.{2,}$", words[i]) is not None):
-			words.pop(i)
-			continue
-		# Remove leading apostrophes
-		for prefix in ["''", "'"]: # Must be ordered by descending length!
-			if words[i].startswith(prefix):
-				words[i] = words[i][len(prefix):]
-				break
-		i += 1
-	
-	return words
+	return words, indexes, strings

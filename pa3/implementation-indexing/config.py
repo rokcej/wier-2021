@@ -1,4 +1,6 @@
-# Configuration parameters
+############################
+# Configuration parameters #
+############################
 
 INPUT_PATH = "../input-indexing"
 
