@@ -24,6 +24,11 @@ PUNCTUATION_MARKS = set([
 	"(", ")", "[", "]", "{", "}", "<", ">" # Brackets
 ])
 
+WORD_MAP = {
+	"eur" : ["eur", "euro", "eurov", "evro", "evrov", "€"]
+}
+# Invert map: { key: [val1, val2] } -> { val1: key, val2: key }
+WORD_MAP = {v : k for k, vs in WORD_MAP.items() for v in vs}
 
 # def text_filter(element):
 # 	# Check if parent tag is blacklisted
@@ -39,7 +44,7 @@ PUNCTUATION_MARKS = set([
 # returns visible text on the page
 def extract_text(html):
 	soup = bs4.BeautifulSoup(html, "html.parser")
-	# # Version 1
+	# Version 1
 	for el in soup(HTML_BLACKLIST):
 		el.extract() # Remove element
 	text = soup.get_text()
@@ -75,6 +80,14 @@ def preprocess_text(text):
 				if token.startswith(prefix):
 					token = token[len(prefix):]
 					break
+			# Remove trailing dot
+			if token.endswith("."):
+				token = token[:-1]
+			# Map words
+			mapped_token = WORD_MAP.get(token)
+			if mapped_token:
+				token = mapped_token
+
 			words.append(token)
 			indexes.append(index)
 	

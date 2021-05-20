@@ -55,7 +55,7 @@ A short description of how word preprocessing is performed, and why. Only read i
 4. Remove stopwords and punctuation marks (`stopwords.STOPWORDS_SLOVENE`, `stopwords.PUNCTUATION_MARKS`)
 5. Remove dot sequences (`".."`, `"..."`, `"...."`, etc.)
 	* The tokenizer splits groups of symbols (`"!!!"` -> `["!", "!", "!"]`), however, dots always stay grouped (`"..."` -> `["..."]`), so they need to be handled separately
-6. Remove leading apostrophes (`"'beseda"` -> `"beseda"`)
+6. Remove leading apostrophes (`"'word"` -> `"word"`)
 	* The tokenizer only splits trailing apostrophes, which can cause issues with quoted words (`"'quote'"` -> `["'quote", "'"]`)
 
 

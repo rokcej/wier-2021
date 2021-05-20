@@ -45,7 +45,13 @@ if __name__ == "__main__":
 			ORDER BY freqSum DESC;
 		""", query_words)
 
+		num_results = 0
 		for row in tqdm(cur_select, desc=f"Processing query results", unit="results", disable=not PRINT_PROGRESS):
+			# Limit number of results if specified
+			if searching.MAX_RESULTS > 0 and num_results >= searching.MAX_RESULTS:
+				break
+			num_results += 1
+
 			# Extract data from query results
 			document_name = row[0]
 			frequency = row[1]

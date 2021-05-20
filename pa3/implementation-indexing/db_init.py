@@ -1,6 +1,8 @@
 import sqlite3
 
-# Initialize SQLite database for page indexing
+################################################
+# Initialize SQLite database for page indexing #
+################################################
 
 # Connect to DB
 conn = sqlite3.connect("inverted-index.db")

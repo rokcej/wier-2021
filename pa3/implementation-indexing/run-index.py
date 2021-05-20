@@ -45,13 +45,14 @@ if __name__ == "__main__":
 	conn = sqlite3.connect('inverted-index.db')
 	cur = conn.cursor()
 
+	# Loop over all sites
 	for site in config.INPUT_SITES:
 		site_path = config.INPUT_PATH + "/" + site
+		# Loop over all pages
 		padding = (max([len(x) for x in config.INPUT_SITES]) - len(site)) * " " # Add spaces to align progress bars
 		for page in tqdm(os.listdir(site_path), desc=f"Indexing {site}{padding}", unit="pages", disable=not PRINT_PROGRESS):
 			# Only process html files with the same name as site
 			if not (page.startswith(site) and page.endswith(".html")):
-				print(">>>>>>>>>>>>>>>> ERROR <<<<<<<<<<<<<<<<") # For debugging
 				continue
 
 			page_path = site_path + "/" + page
@@ -64,10 +65,6 @@ if __name__ == "__main__":
 				words, indexes, _ = preprocessing.preprocess_text(text)
 				for word, index in zip(words, indexes):
 					index_word(cur, word, index, site + "/" + page)
-
-				# for word, index in words:
-				# 	if "'" in word:
-				# 		print(f">>>{word}<<< {i} {page}")
 	
 	# Save DB changes and close connection
 	conn.commit()

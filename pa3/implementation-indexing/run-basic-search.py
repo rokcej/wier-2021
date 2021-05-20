@@ -28,13 +28,14 @@ if __name__ == "__main__":
 	# Start search
 	search_results = []
 	query_words, _, _ = preprocessing.preprocess_text(query_text) # Preprocess query
+	# Loop over all sites
 	for site in config.INPUT_SITES:
 		site_path = config.INPUT_PATH + "/" + site
+		# Loop over all pages
 		padding = (max([len(x) for x in config.INPUT_SITES]) - len(site)) * " " # Add spaces to align progress bars
 		for page in tqdm(os.listdir(site_path), desc=f"Searching {site}{padding}", unit="pages", disable=not PRINT_PROGRESS):
 			# Only process html files with the same name as site
 			if not (page.startswith(site) and page.endswith(".html")):
-				print(">>>>>>>>>>>>>>>> ERROR <<<<<<<<<<<<<<<<") # For debugging
 				continue
 
 			page_path = site_path + "/" + page
@@ -65,6 +66,10 @@ if __name__ == "__main__":
 					
 	# Sort search results by descending frequency
 	search_results.sort(reverse=True, key=lambda res: res[0])
+
+	# Limit number of results if specified
+	if searching.MAX_RESULTS > 0 and len(search_results) >= searching.MAX_RESULTS:
+		search_results = search_results[0 : searching.MAX_RESULTS]
 
 	time_diff = time.process_time() - time_start # Stop timer
 

@@ -2,6 +2,8 @@
 # Common functions for data searching #
 #######################################
 
+MAX_RESULTS = 10 # Set to 0 to remove limit
+MAX_SNIPPETS = 10 # Set to 0 to remove limit
 SNIPPET_LENGTH = 3 # Number of words around matches to include in snippets
 
 OUTPUT_FORMAT = "{:9s}  {:42s}  {:s}\n" # Search result output format
@@ -11,6 +13,9 @@ OUTPUT_FORMAT = "{:9s}  {:42s}  {:s}\n" # Search result output format
 # 	indexes	- list of match indexes
 # 	strings	- list of words that indexes point to
 def extract_snippets(indexes, strings):
+	if MAX_SNIPPETS > 0 and len(indexes) >= MAX_SNIPPETS:
+		indexes = indexes[0 : MAX_SNIPPETS]
+
 	snippets = []
 	i = 0
 	while i < len(indexes):
@@ -50,6 +55,7 @@ def print_results(query, time, results, output_file=None):
 	output += f"  Results found in {time:.3f}s.\n\n"
 	output += f"  {OUTPUT_FORMAT.format('Frequency', 'Document', 'Snippet')}"
 	output += f"  {OUTPUT_FORMAT.format('-' * 9, '-' * 42, '-' * 42)}"
+	
 	for result in results:
 		output += f"  {OUTPUT_FORMAT.format(str(result[0]), result[1], result[2])}"
 
