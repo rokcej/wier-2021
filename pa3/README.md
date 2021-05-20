@@ -20,7 +20,7 @@ nltk.download("punkt")
 
 You may also need to enable Git LFS:
 ```bash
-git add lfs
+git lfs install
 ```
 
 
