@@ -11,10 +11,11 @@ pip install beautifulsoup4
 pip install tqdm
 ```
 
-You may need to download nltk stopwords data using Python:
+You may also need to download some nltk data using Python:
 ```python
 import nltk
 nltk.download("stopwords")
+nltk.download("punkt")
 ```
 
 
