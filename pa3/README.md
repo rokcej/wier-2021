@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Python >=3.6 is required.
+Python >=3.6 is required. Furthermore, Git LFS is used for `inverted-index.db` storage.
 
 Installing Python modules:
 ```bash
@@ -11,11 +11,16 @@ pip install beautifulsoup4
 pip install tqdm
 ```
 
-You may also need to download some nltk data using Python:
+You may need to download some nltk data using Python:
 ```python
 import nltk
 nltk.download("stopwords")
 nltk.download("punkt")
+```
+
+You may also need to enable Git LFS:
+```bash
+git add lfs
 ```
 
 
