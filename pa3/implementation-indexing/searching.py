@@ -2,10 +2,9 @@
 # Common functions for data searching #
 #######################################
 
-MAX_RESULTS = 10 # Set to 0 to remove limit
-MAX_SNIPPETS = 10 # Set to 0 to remove limit
+MAX_RESULTS = 8 # Set to 0 to remove limit
+MAX_SNIPPETS = 6 # Set to 0 to remove limit
 SNIPPET_LENGTH = 3 # Number of words around matches to include in snippets
-
 OUTPUT_FORMAT = "{:9s}  {:42s}  {:s}\n" # Search result output format
 
 

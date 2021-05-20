@@ -3,7 +3,7 @@ import re
 import bs4
 import nltk
 
-from stopwords import STOPWORDS_SLOVENE
+import stopwords
 
 ###########################################
 # Common functions for text preprocessing #
@@ -47,7 +47,7 @@ def extract_text(html):
 	# Version 1
 	for el in soup(HTML_BLACKLIST):
 		el.extract() # Remove element
-	text = soup.get_text()
+	text = soup.get_text(separator=" ", strip=True)
 	# # Version 2
 	# texts = soup.find_all(text=True)
 	# texts = filter(text_filter, texts)
@@ -70,7 +70,7 @@ def preprocess_text(text):
 			# Convert to lowercase
 			token = token.lower()
 			# Remove stopwords and punctuation marks
-			if token in STOPWORDS_SLOVENE or token in PUNCTUATION_MARKS:
+			if token in stopwords.STOPWORDS_SLOVENE or token in PUNCTUATION_MARKS:
 				continue
 			# Remove dot sequences
 			if (re.match(r"\.{2,}$", token) is not None):
