@@ -71,15 +71,8 @@ A short description of how word preprocessing is performed, and why. Only read i
 	* For example, `["eur", "evrov" "€"]` -> `"eur"`
 
 
-## TODO
-
-* (IMPORTANT) Remove repeated tokens in query
-
-
 ## Notes
 
-Just some personal notes, please ignore.
-
-* Inconsistent contractions (`"prjat'li"` -> `["prjat'li"]`, `"prjat'u"` -> `["prjat", "u"]`)
-	* Try using a different tokenizer?
+* `nltk.tokenize.word_tokenize` inconsistently handles contractions
+	* For example, `"prjat'li"` -> `["prjat'li"]`, but `"prjat'u"` -> `["prjat", "u"]`.
 
