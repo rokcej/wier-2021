@@ -71,13 +71,15 @@ A short description of how word preprocessing is performed, and why. Only read i
 	* For example, `["eur", "evrov" "€"]` -> `"eur"`
 
 
+## TODO
+
+* (IMPORTANT) Remove repeated tokens in query
+
+
 ## Notes
 
 Just some personal notes, please ignore.
 
 * Inconsistent contractions (`"prjat'li"` -> `["prjat'li"]`, `"prjat'u"` -> `["prjat", "u"]`)
 	* Try using a different tokenizer?
-* Normalize dates, currencies (`"€"`, `"EUR"`, `"eur"` -> `"eur"`)
-* Is this okay? `"gov.si.,"` -> `"gov.si."` [e-uprava.gov.si/e-uprava.gov.si.5.html]
-* What if all words in the query get removed during preprocessing?
 

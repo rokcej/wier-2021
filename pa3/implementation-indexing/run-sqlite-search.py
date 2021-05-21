@@ -28,9 +28,13 @@ if __name__ == "__main__":
 
 	time_start = time.process_time() # Start timer
 
-	# Start search
+	# Preprocess query
+	query_words, _, _ = preprocessing.preprocess_text(query_text)
+	query_words = searching.remove_duplicates(query_words)
+	
 	search_results = []
-	query_words, _, _ = preprocessing.preprocess_text(query_text) # Preprocess query
+
+	# Start search
 	if len(query_words) > 0:
 		# Generate format string for SQLite query in the form (?, ?, ...)
 		query_words_format = ", ".join("?" * len(query_words))

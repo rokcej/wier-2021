@@ -26,10 +26,13 @@ if __name__ == "__main__":
 
 	time_start = time.process_time() # Start timer
 
-	# Start search
+	# Preprocess query
+	query_words, _, _ = preprocessing.preprocess_text(query_text)
+	query_words = searching.remove_duplicates(query_words)
+	
 	search_results = []
-	query_words, _, _ = preprocessing.preprocess_text(query_text) # Preprocess query
-	# Loop over all sites
+
+	# Start search
 	for site in config.INPUT_SITES:
 		site_path = config.INPUT_PATH + "/" + site
 		# Loop over all pages

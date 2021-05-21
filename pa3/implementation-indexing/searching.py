@@ -7,6 +7,15 @@ MAX_SNIPPETS = 4 # Set to 0 to remove limit
 SNIPPET_LENGTH = 3 # Number of words around matches to include in snippets
 OUTPUT_FORMAT = "{:9s}  {:42s}  {:s}\n" # Search result output format
 
+# Remove duplicate terms from a list of words
+# 	words	- list containing preprocessed query words
+def remove_duplicates(words):
+	words_unique = []
+	for word in words:
+		if word not in words_unique:
+			words_unique.append(word)
+
+	return words_unique
 
 # Extract snippets given a list of indexes
 # 	indexes	- list of match indexes

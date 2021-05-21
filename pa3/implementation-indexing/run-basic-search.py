@@ -77,8 +77,10 @@ if __name__ == "__main__":
 	# Use perf_counter instead of process_time when multiprocessing
 	time_start = time.perf_counter() # Start timer
 
-	# Start search
-	query_words, _, _ = preprocessing.preprocess_text(query_text) # Preprocess query
+	# Preprocess query
+	query_words, _, _ = preprocessing.preprocess_text(query_text) 
+	query_words = searching.remove_duplicates(query_words)
+	
 	search_results = []
 
 	# Get list of all documents
