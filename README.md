@@ -5,9 +5,9 @@ Web Information Extraction and Retrieval course projects for the school year 202
 
 ## Links
 
-[Programming assignment 1](./pa1)
+[Programming Assignment 1](./pa1)
 
-[Programming assignment 2](./pa1)
+[Programming Assignment 2](./pa2)
 
-[Programming assignment 3](./pa1)
+[Programming Assignment 3](./pa3)
 
