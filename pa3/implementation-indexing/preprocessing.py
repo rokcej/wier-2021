@@ -20,8 +20,9 @@ HTML_BLACKLIST = [
 PUNCTUATION_MARKS = set([
 	",", ".", "!", "?", # Basic
 	"'", "''", "\"", "`", "``", # Apostrophes
-	"-", "_", "/", "|", ":", ";", # Separators
-	"(", ")", "[", "]", "{", "}", "<", ">" # Brackets
+	"-", "--", "_", "/", "|", ":", ";", # Separators
+	"(", ")", "[", "]", "{", "}", "<", ">", # Brackets
+	"+", "*", "&", "#", "%", "©" # Symbols
 ])
 
 WORD_MAP = {
